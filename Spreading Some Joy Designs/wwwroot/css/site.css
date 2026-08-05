@@ -416,6 +416,25 @@ main {
   margin-bottom: 1.4rem;
 }
 
+/* The staff request queue. Smallest of the three placements — several requests
+   are stacked on one screen, so the shirts have to stay scannable rather than
+   dominate. The print-area caption is dropped here: staff are judging the
+   artwork, not the garment spec. */
+.sj-queue-preview .sj-shirt {
+  max-width: 130px;
+  margin-bottom: 0.25rem;
+}
+
+.sj-queue-preview .sj-side-label {
+  font-size: 0.68rem;
+  margin-bottom: 0.35rem;
+}
+
+.sj-queue-preview .sj-empty-side {
+  font-size: 0.58rem;
+  padding: 0.2rem;
+}
+
 /* The artwork queue's thumbnails. Checkerboard so a transparent PNG doesn't
    read as a white rectangle — which is how a blank image gets approved. */
 .sj-thumb {

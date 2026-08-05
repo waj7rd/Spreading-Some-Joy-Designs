@@ -323,7 +323,7 @@ public class OrdersController : Controller
         };
     }
 
-    private ShirtPreviewViewModel BuildPreview(Design design, Product product, string side)
+    private ShirtPreviewViewModel BuildPreview(Design design, Product product, string side, bool showPrintAreaSize = true)
     {
         var isFront = side == "front";
         var artwork = isFront ? design.FrontArtwork : design.BackArtwork;
@@ -331,6 +331,7 @@ public class OrdersController : Controller
         return new ShirtPreviewViewModel
         {
             Side = side,
+            ShowPrintAreaSize = showPrintAreaSize,
             ColourHex = product.ColourHex,
             PrintAreaWidthMm = product.PrintAreaWidthMm,
             PrintAreaHeightMm = product.PrintAreaHeightMm,
@@ -362,12 +363,19 @@ public class OrdersController : Controller
                 GarmentName = r.Design?.Product == null
                     ? "—"
                     : $"{r.Design.Product.Colour} {r.Design.Product.Name}",
-                FrontImageUrl = r.Design?.FrontArtwork == null
-                    ? null
-                    : _imageStore.PublicPath(r.Design.FrontArtwork.StoredFileName),
-                BackImageUrl = r.Design?.BackArtwork == null
-                    ? null
-                    : _imageStore.PublicPath(r.Design.BackArtwork.StoredFileName),
+
+                // The repository Includes the design, its product and both
+                // artworks, so these need no further round trips.
+                // No print-area caption in the queue: staff are judging the
+                // artwork here, not the garment spec, and several requests share
+                // one screen.
+                Front = r.Design?.Product == null
+                    ? new ShirtPreviewViewModel { Side = "front" }
+                    : BuildPreview(r.Design, r.Design.Product, "front", showPrintAreaSize: false),
+                Back = r.Design?.Product == null
+                    ? new ShirtPreviewViewModel { Side = "back" }
+                    : BuildPreview(r.Design, r.Design.Product, "back", showPrintAreaSize: false),
+
                 SizeCode = r.SizeCode,
                 Quantity = r.Quantity,
                 RequestedFor = r.RequestedFor,

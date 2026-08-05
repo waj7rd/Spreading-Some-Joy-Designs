@@ -30,26 +30,21 @@ else
     {
         <div class="sj-card p-3 mb-3">
             <div class="row g-3">
-                <div class="col-md-3">
-                    <div class="row g-2">
-                        @if (request.FrontImageUrl != null)
-                        {
-                            <div class="col-6">
-                                <div class="sj-side-label">Front</div>
-                                <img src="@request.FrontImageUrl" alt="Front artwork" class="sj-thumb" style="height:120px" />
-                            </div>
-                        }
-                        @if (request.BackImageUrl != null)
-                        {
-                            <div class="col-6">
-                                <div class="sj-side-label">Back</div>
-                                <img src="@request.BackImageUrl" alt="Back artwork" class="sj-thumb" style="height:120px" />
-                            </div>
-                        }
+                <div class="col-md-4">
+                    @* Both sides, on the garment — including a blank one, so it's
+                       obvious whether the back is printed before the job is
+                       accepted rather than after. *@
+                    <div class="row g-2 sj-queue-preview">
+                        <div class="col-6">
+                            <partial name="_ShirtPreview" model="request.Front" />
+                        </div>
+                        <div class="col-6">
+                            <partial name="_ShirtPreview" model="request.Back" />
+                        </div>
                     </div>
                 </div>
 
-                <div class="col-md-5">
+                <div class="col-md-4">
                     <div class="fw-bold">@request.CustomerName</div>
                     <div class="sj-muted">@request.Phone</div>
                     @if (!string.IsNullOrWhiteSpace(request.Email))

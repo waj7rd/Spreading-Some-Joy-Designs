@@ -136,8 +136,13 @@ public class OrderRequestRowViewModel
     public string Phone { get; set; } = string.Empty;
     public string DesignName { get; set; } = string.Empty;
     public string GarmentName { get; set; } = string.Empty;
-    public string? FrontImageUrl { get; set; }
-    public string? BackImageUrl { get; set; }
+
+    // The garment as it would be printed. Whoever is accepting this needs to see
+    // the artwork *on the shirt* — a placement that's obviously wrong is plain
+    // at a glance here and invisible in a floating thumbnail.
+    public ShirtPreviewViewModel Front { get; set; } = new() { Side = "front" };
+    public ShirtPreviewViewModel Back { get; set; } = new() { Side = "back" };
+
     public string SizeCode { get; set; } = string.Empty;
     public int Quantity { get; set; }
     public DateTime RequestedFor { get; set; }

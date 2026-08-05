@@ -1,0 +1,18 @@
+@{
+    ViewData["Title"] = "Nothing to print on yet";
+}
+
+<h1 class="sj-section-title">Nothing to print on yet</h1>
+<p class="lead">
+    There are no garments in the catalogue, so there's nothing to design on. If you're
+    staff, add one from the catalogue screen.
+</p>
+
+@if (User.IsInRole(Roles.Admin) || User.IsInRole(Roles.Manager))
+{
+    <a class="btn btn-joy" asp-controller="Products" asp-action="Create">Add a garment</a>
+}
+else
+{
+    <a class="btn btn-outline-joy" asp-controller="Home" asp-action="Index">Back to the start</a>
+}

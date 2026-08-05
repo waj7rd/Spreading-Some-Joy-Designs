@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "spreading-joy",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "Spreading Some Joy Designs/Spreading Some Joy Designs.csproj", "--launch-profile", "http"],
+      "port": 5030
+    }
+  ]
+}

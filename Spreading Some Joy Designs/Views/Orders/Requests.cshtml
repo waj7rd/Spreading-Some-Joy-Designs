@@ -1,0 +1,110 @@
+@model OrderRequestQueueViewModel
+@{
+    ViewData["Title"] = "Order requests";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-1">
+    <h1 class="sj-section-title mb-0">Order requests</h1>
+    <a class="btn btn-outline-joy" asp-action="Board">Production board</a>
+</div>
+<p class="sj-muted mb-4">
+    Submissions from the public site. Nothing becomes a customer record until you accept it.
+</p>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+@if (Model.Requests.Count == 0)
+{
+    <div class="alert alert-secondary">Nothing waiting.</div>
+}
+else
+{
+    foreach (var request in Model.Requests)
+    {
+        <div class="sj-card p-3 mb-3">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <div class="row g-2">
+                        @if (request.FrontImageUrl != null)
+                        {
+                            <div class="col-6">
+                                <div class="sj-side-label">Front</div>
+                                <img src="@request.FrontImageUrl" alt="Front artwork" class="sj-thumb" style="height:120px" />
+                            </div>
+                        }
+                        @if (request.BackImageUrl != null)
+                        {
+                            <div class="col-6">
+                                <div class="sj-side-label">Back</div>
+                                <img src="@request.BackImageUrl" alt="Back artwork" class="sj-thumb" style="height:120px" />
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="col-md-5">
+                    <div class="fw-bold">@request.CustomerName</div>
+                    <div class="sj-muted">@request.Phone</div>
+                    @if (!string.IsNullOrWhiteSpace(request.Email))
+                    {
+                        <div class="sj-muted">@request.Email</div>
+                    }
+
+                    <hr class="my-2" />
+
+                    <div><strong>@request.Quantity</strong> &times; @request.SizeCode — @request.GarmentName</div>
+                    <div class="sj-muted">Design: @request.DesignName</div>
+                    <div class="sj-muted">Asked for @request.RequestedFor.ToString("ddd d MMM")</div>
+
+                    @if (!string.IsNullOrWhiteSpace(request.Notes))
+                    {
+                        <div class="mt-2 sj-muted"><em>&ldquo;@request.Notes&rdquo;</em></div>
+                    }
+
+                    <div class="mt-2">
+                        @if (request.RightsAttested)
+                        {
+                            <span class="sj-pill sj-pill-approved">Rights confirmed</span>
+                        }
+                        else
+                        {
+                            <span class="sj-pill sj-pill-rejected">No rights confirmation</span>
+                        }
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <form asp-action="AcceptRequest" method="post" class="mb-3">
+                        <input type="hidden" name="id" value="@request.Id" />
+                        <label class="form-label small" for="due-@request.Id">Promise it for</label>
+                        <div class="input-group input-group-sm mb-2">
+                            <input id="due-@request.Id" type="date" name="dueOn" class="form-control"
+                                   value="@request.SuggestedDueOn.ToString("yyyy-MM-dd")" />
+                            <button type="submit" class="btn btn-joy">Accept</button>
+                        </div>
+                        <div class="form-text">
+                            Capacity and the artwork's approval are both re-checked when you accept.
+                        </div>
+                    </form>
+
+                    <form asp-action="DeclineRequest" method="post"
+                          data-confirm="Decline this request? The customer sees the reason.">
+                        <input type="hidden" name="id" value="@request.Id" />
+                        <label class="form-label small" for="decline-@request.Id">Or decline, with a reason</label>
+                        <div class="input-group input-group-sm">
+                            <input id="decline-@request.Id" name="reason" class="form-control" required />
+                            <button type="submit" class="btn btn-outline-danger">Decline</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    }
+}

@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Spreading Some Joy Designs.Domain/Spreading Some Joy Designs.Domain.csproj" />
+  <Project Path="Spreading Some Joy Designs.DAL/Spreading Some Joy Designs.DAL.csproj" />
+  <Project Path="Spreading Some Joy Designs/Spreading Some Joy Designs.csproj" />
+  <Project Path="Spreading Some Joy Designs.Tests/Spreading Some Joy Designs.Tests.csproj" />
+</Solution>

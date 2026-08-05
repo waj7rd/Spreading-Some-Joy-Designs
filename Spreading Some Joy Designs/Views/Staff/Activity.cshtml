@@ -1,0 +1,46 @@
+@model IList<LoginActivityRowViewModel>
+@{
+    ViewData["Title"] = "Sign-in activity";
+
+    string RowClass(string e) => e switch
+    {
+        LoginAuditEvent.Success => "",
+        LoginAuditEvent.Logout => "sj-muted",
+        LoginAuditEvent.PasswordChanged => "",
+        _ => "table-warning"
+    };
+}
+
+<h1 class="sj-section-title mb-1">Sign-in activity</h1>
+<p class="sj-muted mb-4">
+    The last 200 attempts. A run of failures with no name attached is somebody guessing at
+    addresses that don't exist here.
+</p>
+
+<div class="table-responsive">
+    <table class="table table-sm align-middle">
+        <thead>
+            <tr>
+                <th>When (UTC)</th>
+                <th>Event</th>
+                <th>Email tried</th>
+                <th>Account</th>
+                <th>IP</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var row in Model)
+            {
+                <tr class="@RowClass(row.Event)">
+                    <td class="text-nowrap">@row.OccurredAt.ToString("d MMM HH:mm:ss")</td>
+                    <td>@row.Event</td>
+                    <td>@row.EmailAttempted</td>
+                    <td>@(row.UserName ?? "—")</td>
+                    <td class="sj-muted">@(row.IpAddress ?? "—")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<a class="btn btn-outline-joy" asp-action="Index">Back to staff</a>

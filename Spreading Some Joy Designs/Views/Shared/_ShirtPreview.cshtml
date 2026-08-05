@@ -1,0 +1,131 @@
+@model ShirtPreviewViewModel
+
+@* The garment is drawn as SVG rather than shipped as a photograph, so adding a
+   colourway is a hex value in the database and not a new photo shoot — and it
+   stays sharp at any size. The body is filled from Product.ColourHex; the
+   collar and sleeve seams are drawn with translucent black so they read as
+   creases on a white tee and on a black one alike. *@
+<div class="sj-side-label">@Model.Side</div>
+
+<div class="sj-shirt @(Model.Interactive ? "is-interactive" : "")"
+     style="--shirt-colour:@Model.ColourHex"
+     data-side="@Model.Side"
+     data-min-mm="@Model.MinPlacementMm"
+     data-min-dpi="@Model.MinimumDpi">
+    <svg class="sj-shirt-svg" viewBox="0 0 400 460" xmlns="http://www.w3.org/2000/svg"
+         role="img" aria-label="@Model.Side of the garment">
+        <defs>
+            @* A touch of shading down each side so the shape reads as fabric
+               rather than as a flat sticker. Deliberately subtle — it must not
+               tint the artwork sitting on top of it. *@
+            <linearGradient id="sj-shade-@Model.Side" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#000" stop-opacity="0.10" />
+                <stop offset="18%" stop-color="#000" stop-opacity="0.00" />
+                <stop offset="82%" stop-color="#000" stop-opacity="0.00" />
+                <stop offset="100%" stop-color="#000" stop-opacity="0.10" />
+            </linearGradient>
+
+            <clipPath id="sj-body-@Model.Side">
+                <path d="M 142,20
+                         C 120,25 62,64 36,97
+                         C 25,112 14,142 10,168
+                         L 82,197
+                         C 91,183 101,170 108,161
+                         L 108,420
+                         C 108,432 117,441 129,441
+                         L 271,441
+                         C 283,441 292,432 292,420
+                         L 292,161
+                         C 299,170 309,183 318,197
+                         L 390,168
+                         C 386,142 375,112 364,97
+                         C 338,64 280,25 258,20
+                         C 251,26 244,29 234,29
+                         C 231,52 217,62 200,62
+                         C 183,62 169,52 166,29
+                         C 156,29 149,26 142,20 Z" />
+            </clipPath>
+        </defs>
+
+        <!-- the garment -->
+        <path d="M 142,20
+                 C 120,25 62,64 36,97
+                 C 25,112 14,142 10,168
+                 L 82,197
+                 C 91,183 101,170 108,161
+                 L 108,420
+                 C 108,432 117,441 129,441
+                 L 271,441
+                 C 283,441 292,432 292,420
+                 L 292,161
+                 C 299,170 309,183 318,197
+                 L 390,168
+                 C 386,142 375,112 364,97
+                 C 338,64 280,25 258,20
+                 C 251,26 244,29 234,29
+                 C 231,52 217,62 200,62
+                 C 183,62 169,52 166,29
+                 C 156,29 149,26 142,20 Z"
+              fill="var(--shirt-colour, #ffffff)"
+              stroke="rgba(31,33,36,0.32)" stroke-width="2" stroke-linejoin="round" />
+
+        <rect x="0" y="0" width="400" height="460"
+              fill="url(#sj-shade-@Model.Side)" clip-path="url(#sj-body-@Model.Side)" />
+
+        <!-- collar ribbing -->
+        <path d="M 160,26 C 164,56 180,70 200,70 C 220,70 236,56 240,26"
+              fill="none" stroke="rgba(31,33,36,0.32)" stroke-width="2" stroke-linecap="round" />
+
+        <!-- sleeve seams -->
+        <path d="M 108,161 C 104,120 106,80 118,44"
+              fill="none" stroke="rgba(31,33,36,0.18)" stroke-width="2" stroke-linecap="round" />
+        <path d="M 292,161 C 296,120 294,80 282,44"
+              fill="none" stroke="rgba(31,33,36,0.18)" stroke-width="2" stroke-linecap="round" />
+
+        <!-- hem -->
+        <path d="M 108,412 L 292,412"
+              fill="none" stroke="rgba(31,33,36,0.14)" stroke-width="2" />
+    </svg>
+
+    @* Positioned and proportioned from the product's real print area, so a
+       garment with a smaller printable rectangle shows a smaller one here. *@
+    <div class="sj-print-area"
+         data-width-mm="@Model.PrintAreaWidthMm"
+         data-height-mm="@Model.PrintAreaHeightMm"
+         style="left:@Model.PrintAreaLeftPct;
+                top:@Model.PrintAreaTopPct;
+                width:@Model.PrintAreaWidthPct;
+                height:@Model.PrintAreaHeightPct;">
+        @if (Model.HasArtwork)
+        {
+            @* The wrapper is what gets dragged; the handle has to live outside
+               the <img> and move with it. *@
+            <div class="sj-artwork-wrap @(Model.IsPending ? "is-pending" : "")"
+                 style="left:@Model.LeftPct; top:@Model.TopPct; width:@Model.WidthPct; height:@Model.HeightPct;">
+
+                <img class="sj-artwork"
+                     src="@Model.ImageUrl"
+                     alt="@Model.Side artwork"
+                     draggable="false"
+                     data-px-w="@Model.ImageWidthPx"
+                     data-px-h="@Model.ImageHeightPx" />
+
+                @if (Model.Interactive)
+                {
+                    <span class="sj-resize-handle" aria-hidden="true"></span>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="sj-empty-side">Nothing on the @Model.Side</div>
+        }
+    </div>
+
+    @if (Model.ShowPrintAreaSize)
+    {
+        <div class="sj-print-area-label">
+            @Model.PrintAreaWidthMm &times; @Model.PrintAreaHeightMm mm printable
+        </div>
+    }
+</div>

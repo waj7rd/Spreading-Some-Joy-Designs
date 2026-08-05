@@ -1,0 +1,68 @@
+@model ProductCatalogViewModel
+@{
+    ViewData["Title"] = "Catalog";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="sj-section-title mb-0">Catalog</h1>
+    <a class="btn btn-joy" asp-action="Create">Add a garment</a>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+<div class="table-responsive">
+    <table class="table align-middle">
+        <thead>
+            <tr>
+                <th>Garment</th>
+                <th>Colour</th>
+                <th>Sizes</th>
+                <th>Print area</th>
+                <th class="text-end">Blank</th>
+                <th class="text-end">Per side</th>
+                <th class="text-end">2XL+</th>
+                <th class="text-end"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var product in Model.Products)
+            {
+                <tr class="@(product.IsActive ? "" : "sj-archived")">
+                    <td>
+                        <div class="fw-semibold">@product.Name</div>
+                        @if (!product.IsActive)
+                        {
+                            <span class="sj-muted">Archived</span>
+                        }
+                    </td>
+                    <td>
+                        <span class="sj-swatch" style="background:@product.ColourHex"></span>@product.Colour
+                    </td>
+                    <td class="sj-muted">@string.Join(", ", product.Sizes)</td>
+                    <td class="sj-muted">@product.PrintAreaWidthMm &times; @product.PrintAreaHeightMm</td>
+                    <td class="text-end">@product.BasePrice.ToString("C")</td>
+                    <td class="text-end">@product.PrintSidePrice.ToString("C")</td>
+                    <td class="text-end">+@product.ExtendedSizeUpcharge.ToString("C")</td>
+                    <td class="text-end text-nowrap">
+                        <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@product.Id">Edit</a>
+                        <form asp-action="SetActive" method="post" class="d-inline"
+                              data-confirm="@(product.IsActive ? "Archive this garment? It comes off the designer; existing designs and orders keep it." : null)">
+                            <input type="hidden" name="id" value="@product.Id" />
+                            <input type="hidden" name="isActive" value="@((!product.IsActive).ToString().ToLowerInvariant())" />
+                            <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                @(product.IsActive ? "Archive" : "Restore")
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

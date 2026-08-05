@@ -1,0 +1,93 @@
+@model IList<ProductRowViewModel>
+@{
+    ViewData["Title"] = "Custom printed shirts";
+}
+
+@section Hero {
+    <div class="sj-hero">
+        <div class="container">
+            <div class="row align-items-center g-4">
+                <div class="col-lg-7">
+                    @* Deliberately not "put anything you like on a shirt". The service is
+                       the same either way, but that phrasing reads as an invitation to
+                       bring artwork you don't own — and it's the studio, not the
+                       customer, that answers for what comes off the press. *@
+                    <h1>Your design, printed here.</h1>
+                    <p class="lead mb-4">
+                        Upload your artwork or paste a link to it, place it on the front, the
+                        back, or both, and tell us how many you need. We print it here and you
+                        pick it up.
+                    </p>
+                    <a class="btn btn-joy btn-lg px-4" asp-controller="Designer" asp-action="Index">
+                        Start designing
+                    </a>
+                    <a class="btn btn-outline-joy btn-lg px-4 ms-2" asp-controller="Products" asp-action="Index">
+                        See the garments
+                    </a>
+                </div>
+                <div class="col-lg-5">
+                    <div class="sj-rights-box">
+                        <div class="fw-bold mb-1">One thing before you start</div>
+                        <p class="mb-0 small">
+                            Bring artwork you own — your own work, something you've licensed, or
+                            something in the public domain. We can't print logos, characters, or
+                            photos that belong to someone else, even if they're easy to find
+                            online. Every image gets a quick look from us before it goes to the
+                            press, so we'll tell you if there's a problem rather than surprising
+                            you at collection.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<h2 class="sj-section-title mb-1">What we print on</h2>
+<p class="sj-muted mb-4">Prices are per shirt and include one printed side.</p>
+
+@if (Model.Count == 0)
+{
+    <div class="alert alert-secondary">
+        The catalogue is empty at the moment. Check back shortly.
+    </div>
+}
+else
+{
+    <div class="row g-3">
+        @foreach (var product in Model)
+        {
+            <div class="col-md-6 col-lg-4">
+                <div class="sj-card h-100 p-3 d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <div class="fw-bold">@product.Name</div>
+                            <div class="sj-muted">
+                                <span class="sj-swatch" style="background:@product.ColourHex"></span>@product.Colour
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <div class="fw-bold">@product.FromPrice.ToString("C")</div>
+                            <div class="sj-muted">each</div>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(product.Description))
+                    {
+                        <p class="sj-muted flex-grow-1">@product.Description</p>
+                    }
+
+                    <div class="sj-muted mb-3">
+                        Sizes @string.Join(", ", product.Sizes)
+                        <br />
+                        Print area @product.PrintAreaWidthMm &times; @product.PrintAreaHeightMm mm
+                    </div>
+
+                    <a class="btn btn-outline-joy w-100 mt-auto"
+                       asp-controller="Designer" asp-action="Index"
+                       asp-route-productId="@product.Id">Design on this</a>
+                </div>
+            </div>
+        }
+    </div>
+}

@@ -1,0 +1,280 @@
+@model DesignerViewModel
+@{
+    ViewData["Title"] = "Design your shirt";
+
+    var product = Model.Products.FirstOrDefault(p => p.Id == Model.ProductId) ?? Model.Products.First();
+
+    // The garment is rendered by _ShirtPreview, shared with the checkout screen,
+    // so what the customer lays out here and what they agree to buy there are
+    // drawn by the same code.
+    ShirtPreviewViewModel Preview(string side, SidePlacementViewModel placement) => new()
+    {
+        Side = side,
+        ColourHex = product.ColourHex,
+        PrintAreaWidthMm = product.PrintAreaWidthMm,
+        PrintAreaHeightMm = product.PrintAreaHeightMm,
+        ImageUrl = placement.ImageUrl,
+        IsPending = placement.Status == ArtworkStatus.Pending,
+        XMm = placement.XMm,
+        YMm = placement.YMm,
+        WidthMm = placement.WidthMm,
+        HeightMm = placement.HeightMm,
+
+        // Drag and resize live here, not at checkout.
+        Interactive = true,
+        ImageWidthPx = placement.ImageWidthPx ?? 0,
+        ImageHeightPx = placement.ImageHeightPx ?? 0,
+        MinimumDpi = ImageLimits.MinimumDpi
+    };
+}
+
+<h1 class="sj-section-title mb-1">Design your shirt</h1>
+<p class="sj-muted mb-4">Add your artwork to the front, the back, or both.</p>
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.PendingNotice))
+{
+    <div class="alert alert-warning">@Model.PendingNotice</div>
+}
+
+<div class="row g-4">
+    <!-- ---------------- the shirt ---------------- -->
+    <div class="col-lg-7">
+        <div class="sj-designer-stage">
+            <div class="row g-4">
+                @foreach (var side in new[] { ("front", Model.Front), ("back", Model.Back) })
+                {
+                    var name = side.Item1;
+                    var placement = side.Item2;
+
+                    <div class="col-6">
+                        <partial name="_ShirtPreview" model="Preview(name, placement)" />
+
+                        @if (placement.HasArtwork)
+                        {
+                            <div class="text-center mt-4">
+                                @if (placement.Status == ArtworkStatus.Pending)
+                                {
+                                    <span class="sj-pill sj-pill-pending">Awaiting review</span>
+                                }
+                                else if (placement.Status == ArtworkStatus.Approved)
+                                {
+                                    <span class="sj-pill sj-pill-approved">Approved</span>
+                                }
+                                else if (placement.Status == ArtworkStatus.Rejected)
+                                {
+                                    <span class="sj-pill sj-pill-rejected">Rejected</span>
+                                    <div class="small text-danger mt-1">@placement.RejectionReason</div>
+                                }
+
+                                <form asp-action="RemoveSide" method="post" class="mt-2">
+                                    <input type="hidden" name="side" value="@name" />
+                                    <input type="hidden" name="productId" value="@Model.ProductId" />
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                        Remove
+                                    </button>
+                                </form>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- ---------------- the controls ---------------- -->
+    <div class="col-lg-5">
+
+        <!-- garment -->
+        <div class="sj-card p-3 mb-3">
+            <div class="fw-bold mb-2">1. Pick a garment</div>
+            <form asp-action="Index" method="get">
+                <select name="productId" class="form-select" onchange="this.form.submit()">
+                    @foreach (var p in Model.Products)
+                    {
+                        <option value="@p.Id" selected="@(p.Id == Model.ProductId)">
+                            @p.Colour @p.Name — @p.FromPrice.ToString("C")
+                        </option>
+                    }
+                </select>
+                <noscript>
+                    <button type="submit" class="btn btn-sm btn-outline-joy mt-2">Change garment</button>
+                </noscript>
+            </form>
+        </div>
+
+        <!-- artwork -->
+        <div class="sj-card p-3 mb-3">
+            <div class="fw-bold mb-2">2. Add your artwork</div>
+
+            @* Upload leads, and the link tab is "Paste a link" rather than "From
+               the web" — the second reads as an invitation to go and take
+               something. Same feature, no dare. *@
+            <ul class="nav nav-tabs mb-3" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#fromFile"
+                            type="button" role="tab">Upload a file</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#fromUrl"
+                            type="button" role="tab">Paste a link</button>
+                </li>
+            </ul>
+
+            <div class="tab-content">
+                <div class="tab-pane fade" id="fromUrl" role="tabpanel">
+                    <form asp-action="AddFromUrl" method="post">
+                        <input type="hidden" name="ProductId" value="@Model.ProductId" />
+
+                        <div class="mb-2">
+                            <label class="form-label" for="artwork-url">Link to your artwork</label>
+                            <input id="artwork-url" name="Url" class="form-control"
+                                   placeholder="https://example.com/picture.png" />
+                            <div class="form-text">
+                                For artwork you own that lives somewhere online — your own cloud
+                                storage, a design you've bought, a stock image you've licensed
+                                for printing. Right-click the picture itself and copy its image
+                                address; the address of the page it sits on won't work.
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="url-side">Put it on the</label>
+                            <select id="url-side" name="Side" class="form-select">
+                                <option value="front">Front</option>
+                                <option value="back">Back</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn btn-joy w-100">Fetch this artwork</button>
+                    </form>
+                </div>
+
+                <div class="tab-pane fade show active" id="fromFile" role="tabpanel">
+                    <form asp-action="AddFromUpload" method="post" enctype="multipart/form-data">
+                        <input type="hidden" name="productId" value="@Model.ProductId" />
+
+                        <div class="mb-2">
+                            <label class="form-label" for="artwork-file">Choose a file</label>
+                            <input id="artwork-file" type="file" name="file" class="form-control"
+                                   accept="image/png,image/jpeg,image/gif,image/webp" />
+                            <div class="form-text">PNG, JPEG, GIF or WebP, up to 25MB.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="file-side">Put it on the</label>
+                            <select id="file-side" name="side" class="form-select">
+                                <option value="front">Front</option>
+                                <option value="back">Back</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn btn-joy w-100">Upload</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- size and position -->
+        @if (Model.Front.HasArtwork || Model.Back.HasArtwork)
+        {
+            <form asp-action="Save" method="post">
+                <input type="hidden" asp-for="ProductId" />
+
+                <div class="sj-card p-3 mb-3">
+                    <div class="fw-bold mb-2">3. Size and position</div>
+                    <p class="sj-muted">
+                        <strong>Drag the artwork</strong> to move it, or pull the purple dot to
+                        resize. Arrow keys nudge it once it's selected. The boxes below are
+                        there if you'd rather type exact millimetres.
+                    </p>
+
+                    @foreach (var side in new[] { ("Front", Model.Front), ("Back", Model.Back) })
+                    {
+                        if (!side.Item2.HasArtwork)
+                        {
+                            continue;
+                        }
+
+                        var prefix = side.Item1;
+                        var p = side.Item2;
+                        var maxWidth = p.ImageWidthPx.HasValue
+                            ? ImageLimits.MaxPrintableWidthMm(p.ImageWidthPx.Value)
+                            : product.PrintAreaWidthMm;
+
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-baseline mb-2">
+                                <span class="fw-semibold">@prefix</span>
+                                @* Updated live while dragging, and turns red below 150 DPI —
+                                   the same threshold the server refuses on, so the limit is
+                                   visible while there's still time to act on it. *@
+                                <span class="sj-readout small" data-readout="@prefix"></span>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label class="form-label small">Width (mm)</label>
+                                    <input type="number" class="form-control form-control-sm"
+                                           name="@(prefix).WidthMm" value="@p.WidthMm" min="20" max="@product.PrintAreaWidthMm" />
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small">Height (mm)</label>
+                                    <input type="number" class="form-control form-control-sm"
+                                           name="@(prefix).HeightMm" value="@p.HeightMm" min="20" max="@product.PrintAreaHeightMm" />
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small">From left (mm)</label>
+                                    <input type="number" class="form-control form-control-sm"
+                                           name="@(prefix).XMm" value="@p.XMm" min="0" max="@product.PrintAreaWidthMm" />
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small">From top (mm)</label>
+                                    <input type="number" class="form-control form-control-sm"
+                                           name="@(prefix).YMm" value="@p.YMm" min="0" max="@product.PrintAreaHeightMm" />
+                                </div>
+                            </div>
+                            <div class="form-text">
+                                This image stays sharp up to about @maxWidth mm wide
+                                (@p.ImageWidthPx&times;@p.ImageHeightPx pixels).
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <div class="sj-card p-3">
+                    <div class="fw-bold mb-2">4. Name it and carry on</div>
+                    <div class="mb-3">
+                        <label asp-for="Name" class="form-label"></label>
+                        <input asp-for="Name" class="form-control" placeholder="My design" />
+                    </div>
+                    <button type="submit" class="btn btn-joy w-100">Continue to order</button>
+                </div>
+            </form>
+        }
+        else
+        {
+            <div class="sj-rights-box">
+                <div class="fw-bold mb-1">A note about what we can print</div>
+                <p class="mb-0 small">
+                    Please use artwork you own. A picture found through a search engine almost
+                    always belongs to somebody, and that includes team badges, cartoon
+                    characters, band logos and photos of people — we can't print those without
+                    permission from whoever owns them. Every image is reviewed before it
+                    reaches the press, so we'll let you know either way.
+                </p>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    @* Progressive enhancement: without this the number boxes still place
+       artwork perfectly well, and the form posts the same values either way. *@
+    <script src="~/js/designer.js" asp-append-version="true"></script>
+}

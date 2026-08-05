@@ -1,0 +1,116 @@
+@model ArtworkQueueViewModel
+@{
+    ViewData["Title"] = "Artwork review";
+
+    string TabClass(string status) =>
+        Model.Status == status ? "nav-link active" : "nav-link";
+}
+
+<h1 class="sj-section-title mb-1">Artwork review</h1>
+<p class="sj-muted mb-4">
+    Nothing reaches the press until it's approved here. If you can't tell whether an image
+    is safe to print, reject it and ask — that's cheaper than a takedown notice.
+</p>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+<ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+        <a class="@TabClass(ArtworkStatus.Pending)" asp-action="Queue" asp-route-status="@ArtworkStatus.Pending">
+            Waiting
+            @if (Model.PendingCount > 0)
+            {
+                <span class="badge bg-warning text-dark ms-1">@Model.PendingCount</span>
+            }
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="@TabClass(ArtworkStatus.Approved)" asp-action="Queue" asp-route-status="@ArtworkStatus.Approved">Approved</a>
+    </li>
+    <li class="nav-item">
+        <a class="@TabClass(ArtworkStatus.Rejected)" asp-action="Queue" asp-route-status="@ArtworkStatus.Rejected">Rejected</a>
+    </li>
+</ul>
+
+@if (Model.Artworks.Count == 0)
+{
+    <div class="alert alert-secondary">Nothing here.</div>
+}
+else
+{
+    <div class="row g-3">
+        @foreach (var artwork in Model.Artworks)
+        {
+            <div class="col-md-6 col-xl-4">
+                <div class="sj-card p-3 h-100 d-flex flex-column">
+                    <img src="@artwork.ImageUrl" alt="Submitted artwork" class="sj-thumb mb-3" />
+
+                    <div class="sj-muted mb-2">
+                        <div>@artwork.Provenance</div>
+                        <div>@artwork.Dimensions px &middot; @artwork.SizeDisplay</div>
+                        <div>Sharp up to about <strong>@artwork.MaxPrintWidthMm mm</strong> wide</div>
+                        <div>Added @artwork.CreatedAt.ToString("d MMM HH:mm") UTC</div>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(artwork.SourceUrl))
+                    {
+                        @* rel="noreferrer" so opening it doesn't tell that server where
+                           the moderator came from. *@
+                        <div class="mb-3 text-break small">
+                            <a href="@artwork.SourceUrl" target="_blank" rel="noopener noreferrer nofollow">
+                                @artwork.SourceUrl
+                            </a>
+                        </div>
+                    }
+
+                    @if (artwork.Status == ArtworkStatus.Pending)
+                    {
+                        <div class="mt-auto">
+                            <form asp-action="Approve" method="post" class="mb-2">
+                                <input type="hidden" name="id" value="@artwork.Id" />
+                                <input type="hidden" name="returnStatus" value="@Model.Status" />
+                                <button type="submit" class="btn btn-sm btn-joy w-100">Approve</button>
+                            </form>
+
+                            <form asp-action="Reject" method="post">
+                                <input type="hidden" name="ArtworkId" value="@artwork.Id" />
+                                <input type="hidden" name="returnStatus" value="@Model.Status" />
+                                <div class="input-group input-group-sm">
+                                    <input name="Reason" class="form-control" placeholder="Why not?" required />
+                                    <button type="submit" class="btn btn-outline-danger">Reject</button>
+                                </div>
+                            </form>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mt-auto">
+                            <span class="sj-pill sj-pill-@artwork.Status.ToLowerInvariant()">@artwork.Status</span>
+                            @if (artwork.ReviewedBy != null)
+                            {
+                                <div class="sj-muted mt-1">
+                                    by @artwork.ReviewedBy
+                                    @if (artwork.ReviewedAt.HasValue)
+                                    {
+                                        <text>, @artwork.ReviewedAt.Value.ToString("d MMM")</text>
+                                    }
+                                </div>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(artwork.RejectionReason))
+                            {
+                                <div class="small text-danger mt-1">@artwork.RejectionReason</div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}

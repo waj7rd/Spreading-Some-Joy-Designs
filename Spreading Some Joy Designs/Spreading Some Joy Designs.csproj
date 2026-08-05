@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Spreading Some Joy Designs.DAL\Spreading Some Joy Designs.DAL.csproj" />
+    <ProjectReference Include="..\Spreading Some Joy Designs.Domain\Spreading Some Joy Designs.Domain.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>SpreadingJoy</RootNamespace>
+  </PropertyGroup>
+
+</Project>

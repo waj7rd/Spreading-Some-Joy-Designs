@@ -1,0 +1,80 @@
+@model EditProductViewModel
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+<div class="row g-3">
+    <div class="col-md-8">
+        <label asp-for="Name" class="form-label"></label>
+        <input asp-for="Name" class="form-control" />
+        <span asp-validation-for="Name" class="text-danger small"></span>
+    </div>
+
+    <div class="col-md-4">
+        <label asp-for="Colour" class="form-label"></label>
+        <input asp-for="Colour" class="form-control" />
+        <span asp-validation-for="Colour" class="text-danger small"></span>
+    </div>
+
+    <div class="col-12">
+        <label asp-for="Description" class="form-label"></label>
+        <textarea asp-for="Description" class="form-control" rows="2"></textarea>
+        <span asp-validation-for="Description" class="text-danger small"></span>
+    </div>
+
+    <div class="col-md-3">
+        <label asp-for="ColourHex" class="form-label"></label>
+        <input asp-for="ColourHex" class="form-control form-control-color w-100" type="color" />
+        <div class="form-text">Drawn as the garment in the designer.</div>
+        <span asp-validation-for="ColourHex" class="text-danger small"></span>
+    </div>
+
+    <div class="col-md-3">
+        <label asp-for="BasePrice" class="form-label"></label>
+        <input asp-for="BasePrice" class="form-control" type="number" step="0.01" min="0" />
+        <span asp-validation-for="BasePrice" class="text-danger small"></span>
+    </div>
+
+    <div class="col-md-3">
+        <label asp-for="PrintSidePrice" class="form-label"></label>
+        <input asp-for="PrintSidePrice" class="form-control" type="number" step="0.01" min="0" />
+        <div class="form-text">Charged once per printed side.</div>
+        <span asp-validation-for="PrintSidePrice" class="text-danger small"></span>
+    </div>
+
+    <div class="col-md-3">
+        <label asp-for="ExtendedSizeUpcharge" class="form-label"></label>
+        <input asp-for="ExtendedSizeUpcharge" class="form-control" type="number" step="0.01" min="0" />
+        <div class="form-text">Applied to 2XL and up.</div>
+        <span asp-validation-for="ExtendedSizeUpcharge" class="text-danger small"></span>
+    </div>
+
+    <div class="col-md-3">
+        <label asp-for="PrintAreaWidthMm" class="form-label"></label>
+        <input asp-for="PrintAreaWidthMm" class="form-control" type="number" min="20" max="600" />
+        <span asp-validation-for="PrintAreaWidthMm" class="text-danger small"></span>
+    </div>
+
+    <div class="col-md-3">
+        <label asp-for="PrintAreaHeightMm" class="form-label"></label>
+        <input asp-for="PrintAreaHeightMm" class="form-control" type="number" min="20" max="600" />
+        <span asp-validation-for="PrintAreaHeightMm" class="text-danger small"></span>
+    </div>
+
+    <div class="col-md-6">
+        <label class="form-label">@Html.DisplayNameFor(m => m.Sizes)</label>
+        <div class="d-flex flex-wrap gap-3">
+            @foreach (var size in Sizes.All)
+            {
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="Sizes" value="@size"
+                           id="size-@size" checked="@Model.Sizes.Contains(size)" />
+                    <label class="form-check-label" for="size-@size">@size</label>
+                </div>
+            }
+        </div>
+        <span asp-validation-for="Sizes" class="text-danger small"></span>
+    </div>
+</div>

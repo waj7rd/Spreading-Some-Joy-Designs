@@ -1,0 +1,74 @@
+@model CustomerListViewModel
+@{
+    ViewData["Title"] = "Customers";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="sj-section-title mb-0">Customers</h1>
+    @if (User.IsInRole(Roles.Admin) || User.IsInRole(Roles.Manager))
+    {
+        <a class="btn btn-joy" asp-action="Create">Add a customer</a>
+    }
+</div>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+@if (Model.Customers.Count == 0)
+{
+    <div class="alert alert-secondary">
+        No customers yet. They're created when you accept an order request.
+    </div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th class="text-end">Orders</th>
+                    <th class="text-end"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var customer in Model.Customers)
+                {
+                    <tr class="@(customer.IsActive ? "" : "sj-archived")">
+                        <td>
+                            <a asp-action="Details" asp-route-id="@customer.Id">@customer.FullName</a>
+                            @if (!customer.IsActive)
+                            {
+                                <span class="sj-muted"> — archived</span>
+                            }
+                        </td>
+                        <td class="sj-muted">@(customer.Email ?? "—")</td>
+                        <td class="sj-muted">@(customer.Phone ?? "—")</td>
+                        <td class="text-end">@customer.OrderCount</td>
+                        <td class="text-end text-nowrap">
+                            @if (User.IsInRole(Roles.Admin) || User.IsInRole(Roles.Manager))
+                            {
+                                <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@customer.Id">Edit</a>
+                                <form asp-action="SetActive" method="post" class="d-inline">
+                                    <input type="hidden" name="id" value="@customer.Id" />
+                                    <input type="hidden" name="isActive" value="@((!customer.IsActive).ToString().ToLowerInvariant())" />
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                        @(customer.IsActive ? "Archive" : "Restore")
+                                    </button>
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

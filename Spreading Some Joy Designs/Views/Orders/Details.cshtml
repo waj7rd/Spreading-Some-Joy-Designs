@@ -1,0 +1,135 @@
+@model OrderDetailsViewModel
+@{
+    ViewData["Title"] = $"Order #{Model.Id}";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="sj-section-title mb-0">Order #@Model.Id</h1>
+    <span class="sj-pill sj-pill-@Model.Status.ToLowerInvariant()">@Model.Status</span>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="table-responsive sj-card p-3">
+            <table class="table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Design</th>
+                        <th>Garment</th>
+                        <th>Size</th>
+                        <th class="text-end">Qty</th>
+                        <th class="text-end">Each</th>
+                        <th class="text-end">Line</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var line in Model.Lines)
+                    {
+                        <tr>
+                            <td>@line.DesignName</td>
+                            <td>@line.GarmentName</td>
+                            <td>@line.SizeCode</td>
+                            <td class="text-end">@line.Quantity</td>
+                            <td class="text-end">@line.UnitPrice.ToString("C")</td>
+                            <td class="text-end">@line.LineTotal.ToString("C")</td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr class="fw-bold">
+                        <td colspan="3">Total</td>
+                        <td class="text-end">@Model.GarmentCount</td>
+                        <td></td>
+                        <td class="text-end">@Model.Total.ToString("C")</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.Notes))
+        {
+            <div class="sj-card p-3 mt-3">
+                <div class="fw-bold mb-1">Notes</div>
+                <div class="sj-muted">@Model.Notes</div>
+            </div>
+        }
+
+        @if (Model.Status == OrderStatus.Cancelled)
+        {
+            <div class="alert alert-danger mt-3 mb-0">
+                <strong>Cancelled.</strong> @Model.CancellationReason
+            </div>
+        }
+    </div>
+
+    <div class="col-lg-4">
+        <div class="sj-card p-3 mb-3">
+            <div class="fw-bold mb-2">Customer</div>
+            <div>@Model.CustomerName</div>
+            @if (!string.IsNullOrWhiteSpace(Model.CustomerPhone))
+            {
+                <div class="sj-muted">@Model.CustomerPhone</div>
+            }
+            @if (!string.IsNullOrWhiteSpace(Model.CustomerEmail))
+            {
+                <div class="sj-muted">@Model.CustomerEmail</div>
+            }
+        </div>
+
+        <div class="sj-card p-3 mb-3">
+            <div class="fw-bold mb-2">Dates</div>
+            <div class="sj-muted">Placed @Model.CreatedAt.ToString("d MMM yyyy")</div>
+            <div>Due <strong>@Model.DueOn.ToString("dddd d MMMM")</strong></div>
+        </div>
+
+        <div class="sj-card p-3 mb-3">
+            <div class="fw-bold mb-2">Artwork rights</div>
+            @if (Model.RightsAttested)
+            {
+                <div class="text-success">
+                    Confirmed by the customer
+                    @if (Model.RightsAttestedAt.HasValue)
+                    {
+                        <span class="sj-muted d-block">
+                            @Model.RightsAttestedAt.Value.ToString("d MMM yyyy HH:mm") UTC
+                        </span>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="text-danger">Not confirmed — do not print.</div>
+            }
+        </div>
+
+        @if (Model.Status != OrderStatus.Completed && Model.Status != OrderStatus.Cancelled)
+        {
+            <div class="sj-card p-3">
+                <div class="fw-bold mb-2">Cancel this order</div>
+                <form asp-action="Cancel" method="post"
+                      data-confirm="Cancel this order? The customer should be told why.">
+                    <input type="hidden" name="id" value="@Model.Id" />
+                    <div class="mb-2">
+                        <label class="form-label small" for="cancel-reason">Reason</label>
+                        <textarea id="cancel-reason" name="reason" class="form-control form-control-sm"
+                                  rows="2" required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-outline-danger w-100">Cancel order</button>
+                </form>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="mt-4">
+    <a class="btn btn-outline-joy" asp-action="Board">Back to production</a>
+</div>

@@ -1,0 +1,59 @@
+@model IList<ProductRowViewModel>
+@{
+    ViewData["Title"] = "Garments";
+}
+
+<h1 class="sj-section-title mb-1">What we print on</h1>
+<p class="sj-muted mb-4">Prices are per shirt and include one printed side.</p>
+
+@if (Model.Count == 0)
+{
+    <div class="alert alert-secondary">The catalogue is empty at the moment.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>Garment</th>
+                    <th>Colour</th>
+                    <th>Sizes</th>
+                    <th>Print area</th>
+                    <th class="text-end">From</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var product in Model)
+                {
+                    <tr>
+                        <td>
+                            <div class="fw-semibold">@product.Name</div>
+                            @if (!string.IsNullOrWhiteSpace(product.Description))
+                            {
+                                <div class="sj-muted">@product.Description</div>
+                            }
+                        </td>
+                        <td>
+                            <span class="sj-swatch" style="background:@product.ColourHex"></span>@product.Colour
+                        </td>
+                        <td class="sj-muted">@string.Join(", ", product.Sizes)</td>
+                        <td class="sj-muted">@product.PrintAreaWidthMm &times; @product.PrintAreaHeightMm mm</td>
+                        <td class="text-end fw-semibold">@product.FromPrice.ToString("C")</td>
+                        <td class="text-end">
+                            <a class="btn btn-sm btn-outline-joy"
+                               asp-controller="Designer" asp-action="Index"
+                               asp-route-productId="@product.Id">Design on this</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <p class="sj-muted">
+        Extended sizes (2XL and up) carry a small upcharge, and a second printed side is
+        charged once more. You'll see the exact price before you order.
+    </p>
+}

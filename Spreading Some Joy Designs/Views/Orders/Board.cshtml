@@ -1,0 +1,74 @@
+@model OrderBoardViewModel
+@{
+    ViewData["Title"] = "Production";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="sj-section-title mb-0">Production</h1>
+    <a class="btn btn-outline-joy" asp-action="Requests">Order requests</a>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+@if (Model.Orders.Count == 0)
+{
+    <div class="alert alert-secondary">Nothing on the board — every order is finished or cancelled.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Customer</th>
+                    <th>Due</th>
+                    <th class="text-end">Garments</th>
+                    <th class="text-end">Total</th>
+                    <th>Status</th>
+                    <th class="text-end">Move to</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var order in Model.Orders)
+                {
+                    <tr>
+                        <td><a asp-action="Details" asp-route-id="@order.Id">@order.Id</a></td>
+                        <td>@order.CustomerName</td>
+                        <td class="@(order.IsOverdue ? "sj-overdue" : "")">
+                            @order.DueOn.ToString("ddd d MMM")
+                            @if (order.IsOverdue)
+                            {
+                                <span class="d-block small">overdue</span>
+                            }
+                        </td>
+                        <td class="text-end">@order.GarmentCount</td>
+                        <td class="text-end">@order.Total.ToString("C")</td>
+                        <td>
+                            <span class="sj-pill sj-pill-@order.Status.ToLowerInvariant()">@order.Status</span>
+                        </td>
+                        <td class="text-end">
+                            <form asp-action="SetStatus" method="post" class="d-inline-flex gap-1">
+                                <input type="hidden" name="id" value="@order.Id" />
+                                <select name="status" class="form-select form-select-sm" style="width:auto">
+                                    @foreach (var status in Model.Statuses.Where(s => s != OrderStatus.Cancelled))
+                                    {
+                                        <option value="@status" selected="@(status == order.Status)">@status</option>
+                                    }
+                                </select>
+                                <button type="submit" class="btn btn-sm btn-outline-joy">Set</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

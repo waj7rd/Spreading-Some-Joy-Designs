@@ -1,0 +1,79 @@
+@model StaffListViewModel
+@{
+    ViewData["Title"] = "Staff";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="sj-section-title mb-0">Staff</h1>
+    <div>
+        <a class="btn btn-outline-joy" asp-action="Activity">Sign-in activity</a>
+        <a class="btn btn-joy ms-2" asp-action="Create">Add someone</a>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+<div class="table-responsive">
+    <table class="table align-middle">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Last signed in</th>
+                <th class="text-end"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var person in Model.Staff)
+            {
+                <tr class="@(person.IsActive ? "" : "sj-archived")">
+                    <td>
+                        <div class="fw-semibold">@person.FullName</div>
+                        @if (!person.IsActive)
+                        {
+                            <span class="sj-muted">Deactivated</span>
+                        }
+                        else if (person.IsLockedOut)
+                        {
+                            <span class="sj-pill sj-pill-rejected">Locked out</span>
+                        }
+                    </td>
+                    <td class="sj-muted">@person.Email</td>
+                    <td>@person.Role</td>
+                    <td class="sj-muted">
+                        @(person.LastLoginAt?.ToString("d MMM yyyy HH:mm") ?? "Never")
+                    </td>
+                    <td class="text-end text-nowrap">
+                        <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@person.Id">Edit</a>
+                        <a class="btn btn-sm btn-outline-secondary" asp-action="ResetPassword" asp-route-id="@person.Id">Password</a>
+
+                        @if (person.IsLockedOut)
+                        {
+                            <form asp-action="Unlock" method="post" class="d-inline">
+                                <input type="hidden" name="id" value="@person.Id" />
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">Unlock</button>
+                            </form>
+                        }
+
+                        <form asp-action="SetActive" method="post" class="d-inline"
+                              data-confirm="@(person.IsActive ? "Deactivate this account? They won't be able to sign in." : null)">
+                            <input type="hidden" name="id" value="@person.Id" />
+                            <input type="hidden" name="isActive" value="@((!person.IsActive).ToString().ToLowerInvariant())" />
+                            <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                @(person.IsActive ? "Deactivate" : "Reactivate")
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

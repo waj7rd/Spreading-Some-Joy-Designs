@@ -1,0 +1,145 @@
+@model PlaceOrderViewModel
+@{
+    ViewData["Title"] = "Place your order";
+}
+
+<h1 class="sj-section-title mb-4">Place your order</h1>
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+<div class="row g-4">
+    <div class="col-lg-5">
+        <div class="sj-card p-3 sj-order-preview">
+            <div class="fw-bold mb-1">@Model.DesignName</div>
+            <div class="sj-muted mb-3">@Model.GarmentName</div>
+
+            @* Both sides are shown, including a blank one, so it's obvious at a
+               glance whether the back is printed — "why is my back empty" is a
+               phone call, and this is where it gets prevented. *@
+            <div class="row g-3">
+                <div class="col-6">
+                    <partial name="_ShirtPreview" model="Model.Front" />
+                </div>
+                <div class="col-6">
+                    <partial name="_ShirtPreview" model="Model.Back" />
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-baseline mt-4 pt-3 border-top">
+                <div>
+                    <div class="fw-bold">@Model.UnitPrice.ToString("C") each</div>
+                    <div class="sj-muted">
+                        @if (Model.PrintedSides == 2)
+                        {
+                            <text>Printed front and back</text>
+                        }
+                        else
+                        {
+                            <text>One printed side</text>
+                        }
+                    </div>
+                </div>
+                @if (Model.ExtendedSizeUpcharge > 0)
+                {
+                    <div class="sj-muted text-end">
+                        2XL and up<br />+@Model.ExtendedSizeUpcharge.ToString("C")
+                    </div>
+                }
+            </div>
+
+            @if (Model.Front.IsPending || Model.Back.IsPending)
+            {
+                <div class="sj-muted mt-3">
+                    Your artwork is still with us for review — you can place the order now
+                    and we'll confirm.
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        <form asp-action="Place" method="post">
+            <input type="hidden" asp-for="DesignId" />
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="CustomerName" class="form-label"></label>
+                    <input asp-for="CustomerName" class="form-control" autocomplete="name" />
+                    <span asp-validation-for="CustomerName" class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="Phone" class="form-label"></label>
+                    <input asp-for="Phone" class="form-control" autocomplete="tel" />
+                    <span asp-validation-for="Phone" class="text-danger small"></span>
+                </div>
+
+                <div class="col-12">
+                    <label asp-for="Email" class="form-label"></label>
+                    <input asp-for="Email" class="form-control" autocomplete="email" />
+                    <div class="form-text">Optional, but it's how we send you a confirmation.</div>
+                    <span asp-validation-for="Email" class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="SizeCode" class="form-label"></label>
+                    <select asp-for="SizeCode" class="form-select">
+                        @foreach (var size in Model.AvailableSizes)
+                        {
+                            <option value="@size">@size</option>
+                        }
+                    </select>
+                    <span asp-validation-for="SizeCode" class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="Quantity" class="form-label"></label>
+                    <input asp-for="Quantity" class="form-control" type="number" min="1" max="500" />
+                    <span asp-validation-for="Quantity" class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="RequestedFor" class="form-label"></label>
+                    <input asp-for="RequestedFor" class="form-control" type="date"
+                           value="@Model.RequestedFor.ToString("yyyy-MM-dd")" />
+                    <div class="form-text">We'll confirm the date.</div>
+                    <span asp-validation-for="RequestedFor" class="text-danger small"></span>
+                </div>
+
+                <div class="col-12">
+                    <label asp-for="Notes" class="form-label"></label>
+                    <textarea asp-for="Notes" class="form-control" rows="3"></textarea>
+                    <span asp-validation-for="Notes" class="text-danger small"></span>
+                </div>
+
+                <div class="col-12">
+                    <div class="sj-rights-box">
+                        <div class="form-check mb-0">
+                            <input asp-for="RightsAttested" class="form-check-input" type="checkbox" />
+                            <label asp-for="RightsAttested" class="form-check-label fw-semibold"></label>
+                            <div class="small mt-1">
+                                By ticking this you're confirming the artwork is yours, is licensed
+                                to you, or is in the public domain — and that you're asking us to
+                                print it on that basis. We review every image before printing, and
+                                we'll come back to you if there's a problem.
+                            </div>
+                            <span asp-validation-for="RightsAttested" class="text-danger small"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <button type="submit" class="btn btn-joy btn-lg px-4">Send the order</button>
+                    <a class="btn btn-link" asp-controller="Designer" asp-action="Index">Back to the designer</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

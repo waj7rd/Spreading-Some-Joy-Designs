@@ -1,0 +1,16 @@
+@model ErrorViewModel
+@{
+    ViewData["Title"] = "Something went wrong";
+}
+
+<h1 class="sj-section-title text-danger">Something went wrong</h1>
+<p class="lead">Sorry — that didn't work. Try again, and if it keeps happening let us know.</p>
+
+@if (Model.ShowRequestId)
+{
+    <p class="sj-muted">
+        <strong>Request ID:</strong> <code>@Model.RequestId</code>
+    </p>
+}
+
+<a class="btn btn-outline-joy" asp-controller="Home" asp-action="Index">Back to the start</a>

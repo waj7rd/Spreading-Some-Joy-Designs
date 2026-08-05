@@ -1,0 +1,470 @@
+/* ---------------------------------------------------------------------------
+   Palette, read off the studio's logo (wwwroot/images/logo.png).
+
+   The logo is built from three purples and one dusty blue: a deep eggplant for
+   the wordmark, a mid purple for the lower ring, a slate blue for the upper
+   arc, and a pale lavender for the shirts. Everything on the site resolves
+   through these, so a branding change is this block and nothing else.
+   --------------------------------------------------------------------------- */
+:root {
+  --sj-plum: #452a5e;         /* the wordmark — headings, deepest accents */
+  --sj-plum-dark: #331d47;
+  --sj-purple: #6d4788;       /* the lower ring — primary buttons, active nav */
+  --sj-purple-dark: #56336c;
+  --sj-slate: #6b7ba0;        /* the upper arc — secondary accent */
+  --sj-lavender: #c5aad6;     /* the shirts in the mark */
+  --sj-ink: #2a2130;
+  --sj-muted: #6a6377;
+  --sj-mist: #f6f3f8;
+  --sj-line: #e6dfec;
+
+  /* Deliberately outside the brand palette. "Overdue" and "cancelled" have to
+     read as warnings, and a warning rendered in the house purple reads as
+     decoration. */
+  --sj-alert: #a4291a;
+}
+
+html {
+  font-size: 15px;
+  position: relative;
+  min-height: 100%;
+}
+
+@media (min-width: 768px) {
+  html {
+    font-size: 16px;
+  }
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  margin: 0;
+  color: var(--sj-ink);
+  background-color: #fff;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+main {
+  flex: 1 0 auto;
+}
+
+.btn:focus, .btn:active:focus, .form-control:focus, .form-select:focus, .form-check-input:focus {
+  box-shadow: 0 0 0 0.2rem rgba(109, 71, 136, 0.28);
+  border-color: var(--sj-purple);
+}
+
+/* ---------- Header ---------- */
+
+.sj-header {
+  background-color: #fff;
+}
+
+.sj-navbar {
+  padding-top: 0.85rem;
+  padding-bottom: 0.85rem;
+}
+
+/* The mark is square with a fair amount of internal whitespace, so it needs
+   more height than a wordmark would to stay legible. */
+.sj-logo {
+  max-height: 76px;
+  width: auto;
+}
+
+/* Text wordmark, shown only until the logo image is dropped in. */
+.sj-wordmark {
+  line-height: 1;
+  text-decoration: none;
+}
+
+.sj-wordmark .sj-wordmark-name {
+  display: block;
+  font-weight: 800;
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+  color: var(--sj-plum);
+}
+
+.sj-wordmark .sj-wordmark-name span {
+  color: var(--sj-purple);
+}
+
+.sj-wordmark .sj-wordmark-tag {
+  display: block;
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--sj-slate);
+  margin-top: 0.25rem;
+}
+
+.sj-navbar .nav-link {
+  color: var(--sj-ink) !important;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  padding-left: 0.8rem !important;
+  padding-right: 0.8rem !important;
+  border-bottom: 3px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.sj-navbar .nav-link:hover,
+.sj-navbar .nav-link:focus,
+.sj-navbar .nav-link.active {
+  color: var(--sj-purple) !important;
+  border-bottom-color: var(--sj-purple);
+}
+
+.sj-user {
+  color: var(--sj-muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+/* Echoes the logo's arcs: the dusty blue of the outer ring running into the
+   mid purple and then the eggplant of the wordmark. */
+.sj-stripe {
+  height: 6px;
+  background: linear-gradient(90deg,
+      var(--sj-slate) 0%,
+      var(--sj-purple) 50%,
+      var(--sj-plum) 100%);
+}
+
+/* ---------- Buttons ---------- */
+
+.btn-joy {
+  background-color: var(--sj-purple);
+  border-color: var(--sj-purple);
+  color: #fff;
+  font-weight: 700;
+}
+
+.btn-joy:hover, .btn-joy:focus {
+  background-color: var(--sj-purple-dark);
+  border-color: var(--sj-purple-dark);
+  color: #fff;
+}
+
+.btn-outline-joy {
+  border-color: var(--sj-purple);
+  color: var(--sj-purple);
+  font-weight: 700;
+}
+
+.btn-outline-joy:hover, .btn-outline-joy:focus {
+  background-color: var(--sj-purple);
+  color: #fff;
+}
+
+/* ---------- Hero ---------- */
+
+.sj-hero {
+  background: linear-gradient(160deg, var(--sj-mist) 0%, #fff 65%);
+  padding: 4rem 0 3.5rem;
+  border-bottom: 1px solid var(--sj-line);
+}
+
+.sj-hero h1 {
+  font-weight: 800;
+  font-size: 2.6rem;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.75rem;
+}
+
+.sj-hero p.lead {
+  color: var(--sj-muted);
+  max-width: 34rem;
+}
+
+/* ---------- Cards and tables ---------- */
+
+.sj-card {
+  border: 1px solid var(--sj-line);
+  border-radius: 0.6rem;
+  background: #fff;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.sj-card:hover {
+  box-shadow: 0 6px 20px rgba(31, 33, 36, 0.08);
+  transform: translateY(-2px);
+}
+
+.sj-swatch {
+  display: inline-block;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  border: 1px solid var(--sj-line);
+  vertical-align: -0.15rem;
+  margin-right: 0.35rem;
+}
+
+.sj-section-title {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--sj-plum);
+}
+
+.table > :not(caption) > * > * {
+  padding: 0.7rem 0.75rem;
+}
+
+.sj-muted {
+  color: var(--sj-muted);
+  font-size: 0.88rem;
+}
+
+.sj-archived {
+  opacity: 0.55;
+}
+
+.sj-overdue {
+  color: var(--sj-alert);
+  font-weight: 700;
+}
+
+/* ---------- Status pills ---------- */
+
+.sj-pill {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.sj-pill-received       { background: #e7eefc; color: #1e4bab; }
+.sj-pill-inproduction   { background: #fdf0d8; color: #8a5d05; }
+.sj-pill-printed        { background: #e6f4ea; color: #1a6b35; }
+.sj-pill-readyforpickup { background: #e6f4ea; color: #1a6b35; }
+.sj-pill-completed      { background: #eceff2; color: #4a545f; }
+.sj-pill-cancelled      { background: #fae7e4; color: #a4291a; }
+
+.sj-pill-pending  { background: #fdf0d8; color: #8a5d05; }
+.sj-pill-approved { background: #e6f4ea; color: #1a6b35; }
+.sj-pill-rejected { background: #fae7e4; color: #a4291a; }
+
+/* ---------------------------------------------------------------------------
+   The designer.
+
+   The shirt is drawn in CSS rather than shipped as an image, so a new garment
+   colour is a hex value in the database and not a new photograph to shoot.
+   --------------------------------------------------------------------------- */
+
+.sj-designer-stage {
+  background: var(--sj-mist);
+  border: 1px solid var(--sj-line);
+  border-radius: 0.6rem;
+  padding: 1.5rem;
+}
+
+/* Matches the 400 x 460 viewBox of the shirt drawing, so the SVG and the print
+   area agree about where things are. */
+.sj-shirt {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+
+  /* Bottom margin reserves room for the caption, which hangs below the hem. */
+  margin: 0 auto 1.75rem;
+  aspect-ratio: 400 / 460;
+}
+
+.sj-shirt-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+
+  /* Lifts a white tee off a white page without darkening a black one. */
+  filter: drop-shadow(0 3px 6px rgba(31, 33, 36, 0.14));
+}
+
+/* The printable rectangle. Position and proportions come from the model as
+   inline styles, computed from the product's real print area — so the box on a
+   hoodie is genuinely smaller than the one on a tee. */
+.sj-print-area {
+  position: absolute;
+  border: 1px dashed rgba(31, 33, 36, 0.38);
+  overflow: hidden;
+}
+
+/* Sits below the hem rather than overlapping the garment. */
+.sj-print-area-label {
+  position: absolute;
+  bottom: -1.5rem;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 0.7rem;
+  color: var(--sj-muted);
+}
+
+/* The artwork, positioned in percentages the browser computes from the
+   millimetre values on the model. The wrapper is what moves; the image just
+   fills it. */
+.sj-artwork-wrap {
+  position: absolute;
+}
+
+.sj-artwork {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+.sj-artwork-wrap.is-pending {
+  outline: 2px dashed var(--sj-slate);
+  outline-offset: 2px;
+}
+
+/* ---------- direct manipulation ---------- */
+
+.sj-shirt.is-interactive .sj-artwork-wrap {
+  cursor: grab;
+  touch-action: none;          /* stop the page scrolling mid-drag on touch */
+  outline-offset: 2px;
+}
+
+.sj-shirt.is-interactive .sj-artwork-wrap:hover,
+.sj-shirt.is-interactive .sj-artwork-wrap:focus-visible {
+  outline: 2px solid var(--sj-purple);
+}
+
+.sj-shirt.is-interactive.is-dragging .sj-artwork-wrap {
+  cursor: grabbing;
+  outline: 2px solid var(--sj-purple);
+}
+
+/* Big enough to grab on a phone without covering the artwork. */
+.sj-resize-handle {
+  position: absolute;
+  right: -7px;
+  bottom: -7px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--sj-purple);
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(31, 33, 36, 0.35);
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+/* Live size and resolution while dragging. */
+.sj-readout {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--sj-muted);
+}
+
+.sj-readout.is-low {
+  color: var(--sj-alert);
+}
+
+.sj-side-label {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.78rem;
+  color: var(--sj-slate);
+  text-align: center;
+  margin-bottom: 0.75rem;
+}
+
+/* Sits inside the print area, which is now a modest rectangle on the chest
+   rather than most of the garment — so this has to stay small enough to fit. */
+.sj-empty-side {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sj-muted);
+  font-size: 0.7rem;
+  line-height: 1.25;
+  text-align: center;
+  padding: 0.4rem;
+}
+
+/* The checkout preview. Two shirts side by side in a narrower column than the
+   designer gets, so the print-area caption needs room underneath or it collides
+   with the price line. */
+.sj-order-preview .sj-shirt {
+  max-width: 200px;
+}
+
+.sj-order-preview .sj-print-area-label {
+  bottom: -1.4rem;
+  font-size: 0.68rem;
+}
+
+.sj-order-preview .row {
+  margin-bottom: 1.4rem;
+}
+
+/* The artwork queue's thumbnails. Checkerboard so a transparent PNG doesn't
+   read as a white rectangle — which is how a blank image gets approved. */
+.sj-thumb {
+  width: 100%;
+  height: 180px;
+  object-fit: contain;
+  background-color: #fff;
+  background-image:
+    linear-gradient(45deg, #eee 25%, transparent 25%, transparent 75%, #eee 75%),
+    linear-gradient(45deg, #eee 25%, transparent 25%, transparent 75%, #eee 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 8px 8px;
+  border: 1px solid var(--sj-line);
+  border-radius: 0.4rem;
+}
+
+/* ---------- Rights notice ---------- */
+
+.sj-rights-box {
+  background: #fff8ec;
+  border: 1px solid #f0dcb4;
+  border-radius: 0.5rem;
+  padding: 1rem 1.1rem;
+}
+
+/* ---------- Footer ---------- */
+
+.sj-footer {
+  flex-shrink: 0;
+  background-color: var(--sj-plum);
+  color: rgba(255, 255, 255, 0.82);
+  padding: 2.5rem 0 1.5rem;
+  margin-top: 4rem;
+  font-size: 0.92rem;
+}
+
+.sj-footer a {
+  color: #fff;
+  text-decoration: none;
+}
+
+.sj-footer a:hover {
+  text-decoration: underline;
+}
+
+.sj-footer-brand {
+  font-weight: 800;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.9rem;
+}

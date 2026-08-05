@@ -1,0 +1,143 @@
+@{
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+    var action = ViewContext.RouteData.Values["action"]?.ToString();
+    string NavClass(string c, string? a = null) =>
+        controller == c && (a == null || action == a) ? "nav-link active" : "nav-link";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] &middot; Spreading Some Joy Designs</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    <header class="sj-header">
+        <nav class="navbar navbar-expand-lg sj-navbar">
+            <div class="container">
+                <a class="navbar-brand p-0 me-4" asp-controller="Home" asp-action="Index">
+                    @* Drop the studio's logo at wwwroot/images/logo.png and it replaces the
+                       text wordmark automatically; the fallback keeps the header intact
+                       until then. *@
+                    <img src="~/images/logo.png" alt="Spreading Some Joy Designs"
+                         class="sj-logo"
+                         onerror="this.style.display='none';document.getElementById('sj-wordmark').style.display='block';" />
+                    <span class="sj-wordmark" id="sj-wordmark" style="display:none;">
+                        <span class="sj-wordmark-name">Spreading Some <span>Joy</span></span>
+                        <span class="sj-wordmark-tag">Designs</span>
+                    </span>
+                </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sjNav"
+                        aria-controls="sjNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="navbar-collapse collapse" id="sjNav">
+                    <ul class="navbar-nav flex-grow-1">
+                        <li class="nav-item">
+                            <a class="@NavClass("Home", "Index")" asp-controller="Home" asp-action="Index">Home</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="@NavClass("Products", "Index")" asp-controller="Products" asp-action="Index">Garments</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="@NavClass("Designer")" asp-controller="Designer" asp-action="Index">Design Yours</a>
+                        </li>
+                        @if (User.Identity?.IsAuthenticated == true)
+                        {
+                            <li class="nav-item">
+                                <a class="@NavClass("Orders", "Board")" asp-controller="Orders" asp-action="Board">Production</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="@NavClass("Orders", "Requests")" asp-controller="Orders" asp-action="Requests">Requests</a>
+                            </li>
+                            @if (User.IsInRole(Roles.Admin) || User.IsInRole(Roles.Manager))
+                            {
+                                <li class="nav-item">
+                                    <a class="@NavClass("Artwork")" asp-controller="Artwork" asp-action="Queue">Artwork</a>
+                                </li>
+                            }
+                            <li class="nav-item">
+                                <a class="@NavClass("Customers")" asp-controller="Customers" asp-action="Index">Customers</a>
+                            </li>
+                            @if (User.IsInRole(Roles.Admin) || User.IsInRole(Roles.Manager))
+                            {
+                                <li class="nav-item">
+                                    <a class="@NavClass("Products", "Manage")" asp-controller="Products" asp-action="Manage">Catalog</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="@NavClass("Settings")" asp-controller="Settings" asp-action="Index">Settings</a>
+                                </li>
+                            }
+                            @if (User.IsInRole(Roles.Admin))
+                            {
+                                <li class="nav-item">
+                                    <a class="@NavClass("Staff")" asp-controller="Staff" asp-action="Index">Staff</a>
+                                </li>
+                            }
+                        }
+                    </ul>
+                    <ul class="navbar-nav align-items-lg-center">
+                        @if (User.Identity?.IsAuthenticated == true)
+                        {
+                            <li class="nav-item me-lg-3">
+                                <a class="sj-user text-decoration-none" asp-controller="Account" asp-action="ChangePassword"
+                                   title="Change your password">@User.Identity!.Name</a>
+                            </li>
+                            <li class="nav-item">
+                                <form asp-controller="Account" asp-action="Logout" method="post">
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary">Log Out</button>
+                                </form>
+                            </li>
+                        }
+                        else
+                        {
+                            <li class="nav-item">
+                                <a class="btn btn-sm btn-outline-secondary" asp-controller="Account" asp-action="Login">Staff Log In</a>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <div class="sj-stripe"></div>
+    </header>
+
+    <main role="main">
+        @* Full-bleed slot for the home page hero; every other view just gets the
+           centered container below. *@
+        @await RenderSectionAsync("Hero", required: false)
+        <div class="container @(IsSectionDefined("Hero") ? "" : "pt-4")">
+            @RenderBody()
+        </div>
+    </main>
+
+    <footer class="sj-footer">
+        <div class="container">
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="sj-footer-brand mb-2">Spreading Some Joy Designs</div>
+                    <div>Custom printed shirts, one at a time or a hundred.</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="sj-footer-brand mb-2">Before you order</div>
+                    <div class="small">
+                        We print artwork you own. Anything you upload or link gets a quick look
+                        from us before it reaches the press, and we'll come back to you if
+                        there's a problem with it.
+                    </div>
+                </div>
+            </div>
+            <hr class="border-light opacity-25 my-4" />
+            <div>&copy; @DateTime.Now.Year Spreading Some Joy Designs</div>
+        </div>
+    </footer>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

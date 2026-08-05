@@ -1,0 +1,19 @@
+@model EditProductViewModel
+@{
+    ViewData["Title"] = "Add a garment";
+}
+
+<h1 class="sj-section-title mb-4">Add a garment</h1>
+
+<form asp-action="Create" method="post">
+    <partial name="_ProductForm" model="Model" />
+
+    <div class="mt-4">
+        <button type="submit" class="btn btn-joy">Add garment</button>
+        <a class="btn btn-link" asp-action="Manage">Cancel</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,76 @@
+@model CustomerDetailsViewModel
+@{
+    ViewData["Title"] = Model.FullName;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="sj-section-title mb-0">@Model.FullName</h1>
+        @if (!Model.IsActive)
+        {
+            <span class="sj-muted">Archived</span>
+        }
+    </div>
+    @if (User.IsInRole(Roles.Admin) || User.IsInRole(Roles.Manager))
+    {
+        <a class="btn btn-outline-joy" asp-action="Edit" asp-route-id="@Model.Id">Edit</a>
+    }
+</div>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="sj-card p-3">
+            <div class="fw-bold mb-2">Contact</div>
+            <div class="sj-muted">@(Model.Email ?? "No email")</div>
+            <div class="sj-muted">@(Model.Phone ?? "No phone")</div>
+            <hr class="my-2" />
+            <div class="sj-muted">Customer since @Model.CreatedAt.ToString("d MMM yyyy")</div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="fw-bold mb-2">Orders</div>
+
+        @if (Model.Orders.Count == 0)
+        {
+            <div class="alert alert-secondary mb-0">No orders yet.</div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Due</th>
+                            <th class="text-end">Garments</th>
+                            <th class="text-end">Total</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var order in Model.Orders)
+                        {
+                            <tr>
+                                <td><a asp-controller="Orders" asp-action="Details" asp-route-id="@order.Id">@order.Id</a></td>
+                                <td class="@(order.IsOverdue ? "sj-overdue" : "")">@order.DueOn.ToString("d MMM yyyy")</td>
+                                <td class="text-end">@order.GarmentCount</td>
+                                <td class="text-end">@order.Total.ToString("C")</td>
+                                <td><span class="sj-pill sj-pill-@order.Status.ToLowerInvariant()">@order.Status</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="mt-4">
+    <a class="btn btn-outline-joy" asp-action="Index">Back to customers</a>
+</div>

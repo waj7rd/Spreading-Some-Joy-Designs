@@ -1,0 +1,27 @@
+@model EditProductViewModel
+@{
+    ViewData["Title"] = "Edit garment";
+}
+
+<h1 class="sj-section-title mb-4">Edit garment</h1>
+
+<form asp-action="Edit" method="post">
+    <input type="hidden" asp-for="ProductId" />
+
+    <partial name="_ProductForm" model="Model" />
+
+    <div class="alert alert-warning mt-4 mb-0">
+        Shrinking the print area can leave existing designs no longer fitting. Those
+        aren't rewritten — they're refused at order time instead, so nothing gets
+        silently moved without the customer's say-so.
+    </div>
+
+    <div class="mt-4">
+        <button type="submit" class="btn btn-joy">Save changes</button>
+        <a class="btn btn-link" asp-action="Manage">Cancel</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

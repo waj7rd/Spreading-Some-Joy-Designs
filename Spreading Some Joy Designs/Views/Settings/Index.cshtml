@@ -1,0 +1,130 @@
+@model StudioSettingsViewModel
+@{
+    ViewData["Title"] = "Studio settings";
+}
+
+<h1 class="sj-section-title mb-4">Studio settings</h1>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+<form asp-action="Index" method="post">
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="sj-card p-3 h-100">
+                <div class="fw-bold mb-3">Contact</div>
+
+                <div class="mb-3">
+                    <label asp-for="Name" class="form-label"></label>
+                    <input asp-for="Name" class="form-control" />
+                    <span asp-validation-for="Name" class="text-danger small"></span>
+                </div>
+
+                <div class="row g-2">
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="Phone" class="form-label"></label>
+                        <input asp-for="Phone" class="form-control" />
+                        <span asp-validation-for="Phone" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="Email" class="form-label"></label>
+                        <input asp-for="Email" class="form-control" />
+                        <span asp-validation-for="Email" class="text-danger small"></span>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="AddressLine" class="form-label"></label>
+                    <input asp-for="AddressLine" class="form-control" />
+                    <span asp-validation-for="AddressLine" class="text-danger small"></span>
+                </div>
+
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label asp-for="City" class="form-label"></label>
+                        <input asp-for="City" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label asp-for="State" class="form-label"></label>
+                        <input asp-for="State" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label asp-for="PostalCode" class="form-label"></label>
+                        <input asp-for="PostalCode" class="form-control" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="sj-card p-3 h-100">
+                <div class="fw-bold mb-3">How the studio runs</div>
+
+                <div class="mb-3">
+                    <label asp-for="DailyPrintCapacity" class="form-label"></label>
+                    <input asp-for="DailyPrintCapacity" class="form-control" type="number" min="1" max="5000" />
+                    <div class="form-text">
+                        Garments the press can genuinely do in a day. Orders are refused once a
+                        date is full, so a wrong number here either turns away work or promises
+                        what can't be delivered.
+                    </div>
+                    <span asp-validation-for="DailyPrintCapacity" class="text-danger small"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="TurnaroundDays" class="form-label"></label>
+                    <input asp-for="TurnaroundDays" class="form-control" type="number" min="1" max="90" />
+                    <div class="form-text">
+                        Counted in working days, skipping the closed days below.
+                    </div>
+                    <span asp-validation-for="TurnaroundDays" class="text-danger small"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">@Html.DisplayNameFor(m => m.ClosedDays)</label>
+                    <div class="d-flex flex-wrap gap-3">
+                        @foreach (var day in Enum.GetValues<DayOfWeek>())
+                        {
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="ClosedDays" value="@day"
+                                       id="day-@day" checked="@Model.ClosedDays.Contains(day)" />
+                                <label class="form-check-label" for="day-@day">@day.ToString()[..3]</label>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="TimeZoneId" class="form-label"></label>
+                    <input asp-for="TimeZoneId" class="form-control" />
+                    <div class="form-text">
+                        An IANA id like <code>America/Chicago</code>. Due dates are judged in
+                        this zone rather than the server's.
+                    </div>
+                    <span asp-validation-for="TimeZoneId" class="text-danger small"></span>
+                </div>
+
+                <hr />
+
+                <div class="sj-muted">
+                    Plan: <strong>@Model.CurrentTier</strong>
+                    <div>Changing this isn't something the studio can do from here.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <button type="submit" class="btn btn-joy">Save settings</button>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

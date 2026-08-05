@@ -128,9 +128,17 @@ public partial class SpreadingJoyContext
                 .HasDefaultValue(true)
                 .HasAnnotation("Relational:DefaultConstraintName", "DF_Designs_IsActive");
 
+            entity.Property(e => e.IsStudioDesign)
+                .HasDefaultValue(false)
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_Designs_IsStudioDesign");
+
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("(sysutcdatetime())")
                 .HasAnnotation("Relational:DefaultConstraintName", "DF_Designs_CreatedAt");
+
+            // The shop lists exactly this: studio designs that are still active,
+            // newest first.
+            entity.HasIndex(e => new { e.IsStudioDesign, e.IsActive }, "IX_Designs_IsStudioDesign_IsActive");
 
             entity.HasOne(d => d.Product).WithMany(p => p.Designs)
                 .HasForeignKey(d => d.ProductId)

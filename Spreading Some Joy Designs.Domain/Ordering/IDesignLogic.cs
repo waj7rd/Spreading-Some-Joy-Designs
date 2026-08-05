@@ -10,6 +10,12 @@ public interface IDesignLogic
 
     Task<IList<Design>> GetForCustomerAsync(int customerId);
 
+    // The shop: the studio's own designs, ready to order. Active only.
+    Task<IList<Design>> GetStudioDesignsAsync();
+
+    // Everything the studio has made, archived included, for the staff screen.
+    Task<IList<Design>> GetAllStudioDesignsAsync();
+
     Task<DesignResult> CreateAsync(DesignDetails details);
 
     Task<DesignResult> UpdateAsync(int designId, DesignDetails details);
@@ -32,7 +38,12 @@ public record DesignDetails(
     int ProductId,
     int? CustomerId,
     Placement? Front,
-    Placement? Back);
+    Placement? Back,
+
+    // Set only by the staff path. A customer has no way to supply this — the
+    // designer's public flow passes false, and the flag isn't on any view model
+    // the model binder could fill from a post.
+    bool IsStudioDesign = false);
 
 public class DesignResult : IOperationResult
 {

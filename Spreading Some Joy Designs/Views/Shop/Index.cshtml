@@ -1,0 +1,61 @@
+@model ShopViewModel
+@{
+    ViewData["Title"] = "Shop our designs";
+}
+
+<h1 class="sj-section-title mb-1">Our designs</h1>
+<p class="sj-muted mb-4">
+    Designs we've made ourselves. Pick one, choose a size, and we'll print it —
+    nothing to upload and nothing to wait on.
+</p>
+
+@if (Model.Designs.Count == 0)
+{
+    <div class="alert alert-secondary">
+        Nothing in the shop just yet — check back soon, or
+        <a asp-controller="Designer" asp-action="Index">design your own</a>.
+    </div>
+}
+else
+{
+    <div class="row g-4">
+        @foreach (var design in Model.Designs)
+        {
+            <div class="col-sm-6 col-lg-4 col-xl-3">
+                <div class="sj-card h-100 p-3 d-flex flex-column">
+                    <div class="sj-shop-preview mb-2">
+                        <partial name="_ShirtPreview" model="design.Front" />
+                    </div>
+
+                    <div class="fw-bold">@design.Name</div>
+                    <div class="sj-muted mb-2">@design.GarmentName</div>
+
+                    <div class="sj-muted mb-3">
+                        @if (design.PrintedSides == 2)
+                        {
+                            <text>Printed front and back</text>
+                        }
+                        else
+                        {
+                            <text>One printed side</text>
+                        }
+                        <br />
+                        Sizes @string.Join(", ", design.Sizes)
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mt-auto">
+                        <span class="fw-bold">from @design.Price.ToString("C")</span>
+                        <a class="btn btn-sm btn-joy"
+                           asp-controller="Orders" asp-action="Place"
+                           asp-route-designId="@design.Id">Order this</a>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <p class="sj-muted mt-4">
+        Want something of your own instead?
+        <a asp-controller="Designer" asp-action="Index">Design your own shirt</a>.
+    </p>
+}

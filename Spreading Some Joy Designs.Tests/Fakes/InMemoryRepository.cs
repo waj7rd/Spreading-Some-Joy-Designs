@@ -105,6 +105,21 @@ public class FakeDesignRepository : InMemoryRepository<Design>, IDesignRepositor
     // is what makes a test that forgets to look like the production path.
     public Task<Design?> GetWithArtworkAsync(int designId) =>
         Task.FromResult(Items.FirstOrDefault(d => d.DesignId == designId));
+
+    public Task<IList<Design>> GetStudioDesignsAsync(bool activeOnly)
+    {
+        var designs = Items.Where(d => d.IsStudioDesign);
+
+        // Mirrors the real query: the shop must never offer a design built on
+        // an archived garment.
+        if (activeOnly)
+            designs = designs.Where(d => d.IsActive && (d.Product == null || d.Product.IsActive));
+
+        return Task.FromResult<IList<Design>>(designs
+            .OrderByDescending(d => d.IsActive)
+            .ThenByDescending(d => d.CreatedAt)
+            .ToList());
+    }
 }
 
 public class FakeCustomerRepository : InMemoryRepository<Customer>, ICustomerRepository

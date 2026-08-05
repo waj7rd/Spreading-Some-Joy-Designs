@@ -73,6 +73,37 @@ anonymous. Found by trying it; the fix is in `Program.cs`.
 
 ---
 
+## Studio designs do not bypass the approval gate
+
+`Designs.IsStudioDesign` marks artwork the studio made itself, offered from the
+shop. It carries none of the provenance risk of a customer-supplied image.
+
+The obvious implementation is a branch in `ValidateForOrderAsync` that skips the
+approval check for studio designs. **That is deliberately not what happens.**
+
+Instead, artwork added by a signed-in staff member is created `Approved` and
+attributed to them (`ArtworkLogic.StoreAsync`, `approvedByUserId`). A studio
+design then passes the same gate as everything else, honestly.
+
+The reason is that a bypass branch is a second path to the press, and second
+paths get reached by accident — a flag set wrongly, a query that forgets a
+filter, a future feature that copies a design. There is no branch here to get
+wrong: if the artwork isn't `Approved`, it doesn't print, whoever made it.
+
+`StudioDesignTests.A_studio_design_with_unapproved_artwork_is_still_refused` is
+the guard. If someone adds a bypass later, that test fails.
+
+Two related details:
+
+- **Re-uploading a rejected image does not un-reject it**, even for staff. The
+  dedupe returns the existing row untouched. Reversing a rejection is what the
+  Approve button is for, where it's an explicit act by a named person.
+- **The shop hides designs whose garment has been archived.** Otherwise they
+  stay orderable right until `OrderLogic` refuses at the last step, which reads
+  as the site being broken rather than the product being discontinued.
+
+---
+
 ## Bytes are ours, never hotlinked
 
 `Artworks` stores our own copy. `SourceUrl` is provenance — evidence for a
@@ -157,7 +188,7 @@ only caught exceptions would commit the very orphans it exists to prevent.
 |---|---|
 | Which URLs the server will fetch | `Artworks/ImageUrlPolicy` + `DAL/Imaging/HttpImageFetcher` |
 | What counts as a usable image | `Artworks/ArtworkLogic` + `ImageLimits` |
-| Nothing prints without human approval | `Ordering/DesignLogic.ValidateForOrderAsync` |
+| Nothing prints without human approval — studio designs included | `Ordering/DesignLogic.ValidateForOrderAsync` |
 | Artwork fits the print area, and prints sharply | `Ordering/DesignLogic.CheckPlacement` |
 | Rights attested; date, capacity, size valid | `Ordering/OrderLogic.PlaceAsync` |
 | Anonymous input never reaches customer records | `Ordering/OrderRequestLogic` |

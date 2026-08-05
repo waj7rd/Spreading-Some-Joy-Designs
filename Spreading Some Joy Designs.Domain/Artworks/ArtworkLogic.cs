@@ -27,7 +27,7 @@ public class ArtworkLogic : IArtworkLogic
         _clock = clock;
     }
 
-    public async Task<ArtworkResult> AddFromUrlAsync(string url, int? customerId, CancellationToken cancellationToken = default)
+    public async Task<ArtworkResult> AddFromUrlAsync(string url, int? customerId, int? approvedByUserId = null, CancellationToken cancellationToken = default)
     {
         // Shape and scheme are checked here so an obviously bad address is
         // refused without a network call at all. The fetcher re-checks the
@@ -45,15 +45,16 @@ public class ArtworkLogic : IArtworkLogic
             sourceUrl: fetched.ResolvedUrl ?? parsed.ToString(),
             originalFileName: null,
             customerId,
+            approvedByUserId,
             cancellationToken);
     }
 
-    public async Task<ArtworkResult> AddFromUploadAsync(byte[] content, string? originalFileName, int? customerId, CancellationToken cancellationToken = default)
+    public async Task<ArtworkResult> AddFromUploadAsync(byte[] content, string? originalFileName, int? customerId, int? approvedByUserId = null, CancellationToken cancellationToken = default)
     {
         if (content == null || content.Length == 0)
             return ArtworkResult.Fail("That file was empty.");
 
-        return await StoreAsync(content, sourceUrl: null, originalFileName, customerId, cancellationToken);
+        return await StoreAsync(content, sourceUrl: null, originalFileName, customerId, approvedByUserId, cancellationToken);
     }
 
     // The single path both entry points run through. Everything that decides
@@ -63,6 +64,7 @@ public class ArtworkLogic : IArtworkLogic
         string? sourceUrl,
         string? originalFileName,
         int? customerId,
+        int? approvedByUserId,
         CancellationToken cancellationToken)
     {
         if (content.LongLength > ImageLimits.MaxBytes)
@@ -96,6 +98,11 @@ public class ArtworkLogic : IArtworkLogic
             // second copy — which also means an image a moderator has already
             // rejected comes straight back rejected, no matter which URL it
             // arrived through this time.
+            //
+            // Deliberately not re-approved here even when staff are adding it:
+            // a considered rejection shouldn't be undone by someone re-uploading
+            // the same file. Reversing one is what the Approve button is for,
+            // where it's an explicit act by a named person.
             return ArtworkResult.Ok(existing.ArtworkId, wasDeduplicated: true);
         }
 
@@ -112,7 +119,14 @@ public class ArtworkLogic : IArtworkLogic
             WidthPx = info.WidthPx,
             HeightPx = info.HeightPx,
             Sha256 = sha256,
-            Status = ArtworkStatus.Pending,
+
+            // Staff adding the studio's own artwork are the moderator; there is
+            // nobody left to review it. Everything from a customer starts
+            // Pending, which is what the ordering rules refuse on.
+            Status = approvedByUserId.HasValue ? ArtworkStatus.Approved : ArtworkStatus.Pending,
+            ReviewedByUserId = approvedByUserId,
+            ReviewedAt = approvedByUserId.HasValue ? _clock.UtcNow : null,
+
             CreatedAt = _clock.UtcNow
         };
 

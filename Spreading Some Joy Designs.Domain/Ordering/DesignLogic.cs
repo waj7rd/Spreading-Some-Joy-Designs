@@ -37,6 +37,12 @@ public class DesignLogic : IDesignLogic
         return designs.OrderByDescending(d => d.CreatedAt).ToList();
     }
 
+    public async Task<IList<Design>> GetStudioDesignsAsync() =>
+        await _designRepository.GetStudioDesignsAsync(activeOnly: true);
+
+    public async Task<IList<Design>> GetAllStudioDesignsAsync() =>
+        await _designRepository.GetStudioDesignsAsync(activeOnly: false);
+
     public async Task<DesignResult> CreateAsync(DesignDetails details)
     {
         var (error, product) = await ValidateAsync(details);
@@ -49,6 +55,7 @@ public class DesignLogic : IDesignLogic
             CustomerId = details.CustomerId,
             Name = details.Name.Trim(),
             IsActive = true,
+            IsStudioDesign = details.IsStudioDesign,
             CreatedAt = _clock.UtcNow
         };
 

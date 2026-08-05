@@ -18,11 +18,14 @@
                         back, or both, and tell us how many you need. We print it here and you
                         pick it up.
                     </p>
-                    <a class="btn btn-joy btn-lg px-4" asp-controller="Designer" asp-action="Index">
-                        Start designing
+                    @* Our own designs lead. They're the lower-risk, higher-margin
+                       half of the business, and they need nothing from the
+                       customer — no upload, no review, no waiting. *@
+                    <a class="btn btn-joy btn-lg px-4" asp-controller="Shop" asp-action="Index">
+                        Shop our designs
                     </a>
-                    <a class="btn btn-outline-joy btn-lg px-4 ms-2" asp-controller="Products" asp-action="Index">
-                        See the garments
+                    <a class="btn btn-outline-joy btn-lg px-4 ms-2" asp-controller="Designer" asp-action="Index">
+                        Design your own
                     </a>
                 </div>
                 <div class="col-lg-5">

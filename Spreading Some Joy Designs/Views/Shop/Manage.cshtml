@@ -1,0 +1,72 @@
+@model ShopViewModel
+@{
+    ViewData["Title"] = "Our designs";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-1">
+    <h1 class="sj-section-title mb-0">Our designs</h1>
+    <a class="btn btn-joy" asp-controller="Designer" asp-action="Index">Make a new one</a>
+</div>
+<p class="sj-muted mb-4">
+    Designs the studio owns, offered in the shop. Anything you make while signed in
+    lands here — and its artwork is approved automatically, because you made it.
+</p>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+@if (Model.Designs.Count == 0)
+{
+    <div class="alert alert-secondary">
+        Nothing here yet. Open the designer while signed in and whatever you make
+        becomes a shop design rather than a customer one.
+    </div>
+}
+else
+{
+    <div class="row g-4">
+        @foreach (var design in Model.Designs)
+        {
+            <div class="col-sm-6 col-lg-4 col-xl-3">
+                <div class="sj-card h-100 p-3 d-flex flex-column @(design.IsActive ? "" : "sj-archived")">
+                    <div class="sj-shop-preview mb-2">
+                        <partial name="_ShirtPreview" model="design.Front" />
+                    </div>
+
+                    <div class="fw-bold">@design.Name</div>
+                    <div class="sj-muted">@design.GarmentName</div>
+                    <div class="sj-muted mb-2">
+                        from @design.Price.ToString("C") &middot; added @design.CreatedAt.ToString("d MMM yyyy")
+                    </div>
+
+                    @if (!design.IsActive)
+                    {
+                        <div class="mb-2"><span class="sj-pill sj-pill-completed">Not in the shop</span></div>
+                    }
+
+                    @if (design.ArtworkStatusWarning != null)
+                    {
+                        <div class="alert alert-warning py-2 px-2 small mb-2">
+                            @design.ArtworkStatusWarning
+                        </div>
+                    }
+
+                    <form asp-action="SetActive" method="post" class="mt-auto"
+                          data-confirm="@(design.IsActive ? "Take this out of the shop? Past orders are unaffected." : null)">
+                        <input type="hidden" name="id" value="@design.Id" />
+                        <input type="hidden" name="isActive" value="@((!design.IsActive).ToString().ToLowerInvariant())" />
+                        <button type="submit" class="btn btn-sm btn-outline-secondary w-100">
+                            @(design.IsActive ? "Take out of the shop" : "Put back in the shop")
+                        </button>
+                    </form>
+                </div>
+            </div>
+        }
+    </div>
+}

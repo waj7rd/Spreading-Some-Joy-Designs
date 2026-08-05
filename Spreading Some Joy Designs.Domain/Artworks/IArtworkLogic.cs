@@ -12,11 +12,17 @@ namespace SpreadingJoy.Domain.Artworks;
 public interface IArtworkLogic
 {
     // Fetches the URL server-side and stores our own copy of the bytes.
-    Task<ArtworkResult> AddFromUrlAsync(string url, int? customerId, CancellationToken cancellationToken = default);
+    //
+    // approvedByUserId marks the image as reviewed on arrival, and is only ever
+    // supplied when a signed-in member of staff is the one adding it — they are
+    // the moderator, and the studio's own artwork doesn't need reviewing by the
+    // person who just made it. It's the reason studio designs need no bypass in
+    // the ordering rules: they pass the normal approval gate honestly.
+    Task<ArtworkResult> AddFromUrlAsync(string url, int? customerId, int? approvedByUserId = null, CancellationToken cancellationToken = default);
 
     // Same pipeline, bytes supplied directly. originalFileName is kept for
     // display only and never used to build a path.
-    Task<ArtworkResult> AddFromUploadAsync(byte[] content, string? originalFileName, int? customerId, CancellationToken cancellationToken = default);
+    Task<ArtworkResult> AddFromUploadAsync(byte[] content, string? originalFileName, int? customerId, int? approvedByUserId = null, CancellationToken cancellationToken = default);
 
     Task<Artwork?> GetByIdAsync(int artworkId);
 

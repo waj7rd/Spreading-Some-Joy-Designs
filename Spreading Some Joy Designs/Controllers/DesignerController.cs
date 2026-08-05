@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using SpreadingJoy.Domain.EntityModels;
+using SpreadingJoy.Security;
 using SpreadingJoy.ViewModels;
 
 namespace SpreadingJoy.Controllers;
@@ -77,7 +78,8 @@ public class DesignerController : Controller
             return RedirectToAction(nameof(Index), new { productId = model.ProductId });
         }
 
-        var result = await _artworkLogic.AddFromUrlAsync(model.Url, customerId: null, cancellationToken);
+        var result = await _artworkLogic.AddFromUrlAsync(
+            model.Url, customerId: null, approvedByUserId: StudioUserId(), cancellationToken);
 
         return await AfterArtworkAddedAsync(result, model.Side, model.ProductId);
     }
@@ -107,7 +109,7 @@ public class DesignerController : Controller
         // file.FileName is display only. It never reaches a path — the store
         // builds the filename from the content hash.
         var result = await _artworkLogic.AddFromUploadAsync(
-            buffer.ToArray(), file.FileName, customerId: null, cancellationToken);
+            buffer.ToArray(), file.FileName, customerId: null, approvedByUserId: StudioUserId(), cancellationToken);
 
         return await AfterArtworkAddedAsync(result, side, productId);
     }
@@ -139,12 +141,18 @@ public class DesignerController : Controller
         if (string.IsNullOrWhiteSpace(model.Name))
             model.Name = "My design";
 
+        // Who's driving decides what this becomes. Signed-in staff are building
+        // the studio's own catalogue; anyone else is designing their own shirt
+        // and goes on to check out.
+        var isStudio = StudioUserId().HasValue;
+
         var result = await _designLogic.CreateAsync(new DesignDetails(
             Name: model.Name,
             ProductId: model.ProductId,
             CustomerId: null,
             Front: front,
-            Back: back));
+            Back: back,
+            IsStudioDesign: isStudio));
 
         if (!result.Success)
         {
@@ -152,8 +160,28 @@ public class DesignerController : Controller
             return RedirectToAction(nameof(Index), new { productId = model.ProductId });
         }
 
+        // Clear the session so the next design starts from a blank shirt rather
+        // than inheriting the artwork just saved.
+        SetSessionArtwork("front", null);
+        SetSessionArtwork("back", null);
+
+        if (isStudio)
+        {
+            TempData["StudioSuccess"] = $"\"{model.Name.Trim()}\" is in the shop.";
+            return RedirectToAction("Manage", "Shop");
+        }
+
         return RedirectToAction("Place", "Orders", new { designId = result.DesignId });
     }
+
+    // The signed-in staff member, when there is one.
+    //
+    // Used for two things that travel together: marking a new design as the
+    // studio's own, and approving its artwork on arrival. Both are gated on the
+    // same fact — a member of staff is the one adding it — so they can't drift
+    // apart into a studio design whose artwork is still waiting for review.
+    private int? StudioUserId() =>
+        User.Identity?.IsAuthenticated == true ? User.UserId() : null;
 
     // ---- internals ----
 
@@ -180,9 +208,12 @@ public class DesignerController : Controller
 
         SetSessionArtwork(NormaliseSide(side), result.ArtworkId);
 
-        TempData["DesignerPending"] =
-            "Added. Every image gets a quick look from us before it goes to the press, " +
-            "so you can place the order now and we'll confirm shortly.";
+        // Staff are the reviewer, so telling them it's awaiting review would be
+        // nonsense — theirs is approved the moment it lands.
+        TempData["DesignerPending"] = StudioUserId().HasValue
+            ? "Added and approved — it's yours, so there's nothing to review."
+            : "Added. Every image gets a quick look from us before it goes to the press, " +
+              "so you can place the order now and we'll confirm shortly.";
 
         return RedirectToAction(nameof(Index), new { productId });
     }

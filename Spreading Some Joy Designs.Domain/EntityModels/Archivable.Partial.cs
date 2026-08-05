@@ -16,6 +16,17 @@ public partial class Product
 public partial class Design
 {
     public bool IsActive { get; set; } = true;
+
+    // The studio's own artwork, offered from the shop for anyone to order,
+    // rather than something a customer brought.
+    //
+    // This is the lower-risk half of the business: the studio made it, so
+    // there's no question about who owns it. Note it does *not* skip the
+    // approval gate — artwork uploaded by staff is created already approved,
+    // so a studio design passes the same check as everything else. A design
+    // that somehow reached the press without an approved image would be a bug
+    // whichever kind it was, and there's no branch here that could hide one.
+    public bool IsStudioDesign { get; set; }
 }
 
 public partial class Customer

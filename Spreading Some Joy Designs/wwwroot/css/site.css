@@ -435,6 +435,17 @@ main {
   padding: 0.2rem;
 }
 
+/* The shop. One shirt per card, front only — the listing is a glance, and the
+   full garment is on the order page. */
+.sj-shop-preview .sj-shirt {
+  max-width: 190px;
+  margin-bottom: 0;
+}
+
+.sj-shop-preview .sj-side-label {
+  display: none;
+}
+
 /* The artwork queue's thumbnails. Checkerboard so a transparent PNG doesn't
    read as a white rectangle — which is how a blank image gets approved. */
 .sj-thumb {

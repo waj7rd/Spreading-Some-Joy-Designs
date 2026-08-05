@@ -462,6 +462,39 @@ main {
   border-radius: 0.4rem;
 }
 
+/* ---------- Reviewer's checklist ---------- */
+
+/* Collapsed by default — it's a reference, not a wall to read every time. Open
+   costs one click and it's remembered by nobody, which is the point: it should
+   be easy to consult and impossible to lose. */
+.sj-checklist {
+  background: #fff8ec;
+  border: 1px solid #f0dcb4;
+  border-radius: 0.5rem;
+  max-width: 46rem;
+}
+
+.sj-checklist > summary {
+  cursor: pointer;
+  padding: 0.7rem 1.1rem;
+  font-weight: 700;
+  color: var(--sj-plum);
+  list-style-position: inside;
+}
+
+.sj-checklist > summary:hover {
+  color: var(--sj-purple);
+}
+
+.sj-checklist .sj-checklist-body {
+  padding: 0 1.1rem 1rem;
+  font-size: 0.88rem;
+}
+
+.sj-checklist ul {
+  padding-left: 1.1rem;
+}
+
 /* ---------- Rights notice ---------- */
 
 .sj-rights-box {

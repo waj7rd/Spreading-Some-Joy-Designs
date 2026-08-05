@@ -7,10 +7,41 @@
 }
 
 <h1 class="sj-section-title mb-1">Artwork review</h1>
-<p class="sj-muted mb-4">
-    Nothing reaches the press until it's approved here. If you can't tell whether an image
-    is safe to print, reject it and ask — that's cheaper than a takedown notice.
+<p class="sj-muted mb-3">
+    Nothing reaches the press until it's approved here.
 </p>
+
+@* The rules, at the moment of deciding. They exist in the handover note too,
+   but a document you were sent once is not where anybody checks — the point of
+   putting them here is that they're in front of you while you're looking at the
+   image, not filed somewhere you'd have to remember to go. *@
+<details class="sj-checklist mb-4">
+    <summary>Before you approve — what we can't print</summary>
+
+    <div class="sj-checklist-body">
+        <p class="mb-2">Say no if the image contains any of these, unless the customer can show you a licence:</p>
+        <ul class="mb-3">
+            <li>Sports teams and leagues, or college and school logos</li>
+            <li>Cartoon and film characters — Disney, Marvel, anime</li>
+            <li>Band and music logos</li>
+            <li>Any company's logo, unless it's their own business ordering</li>
+            <li>Photos of famous people</li>
+        </ul>
+
+        <p class="mb-2">Fine to print:</p>
+        <ul class="mb-3">
+            <li>Artwork the customer made themselves</li>
+            <li>Something bought with a licence that covers printing for resale</li>
+            <li>Plain text and lettering — though check the phrase isn't trademarked for clothing</li>
+            <li>Clearly out of copyright, or your own designs</li>
+        </ul>
+
+        <p class="mb-0 fw-semibold">
+            If you're not sure, reject it and ask. An awkward message beats a legal letter,
+            and the reason you type is what the customer sees.
+        </p>
+    </div>
+</details>
 
 @if (!string.IsNullOrEmpty(Model.SuccessMessage))
 {

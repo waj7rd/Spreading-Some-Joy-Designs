@@ -14,7 +14,7 @@
     <!-- Artwork arrives as bytes from a stranger's URL or upload. This decodes
          it to find out what it actually is, and re-encodes it to strip whatever
          else was riding along in the original container. -->
-    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.*" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="4.0.*" />
 
     <!-- The image fetcher is an HttpClient consumer; this is what supplies it
          a pooled, correctly-disposed one outside the web project's DI. -->

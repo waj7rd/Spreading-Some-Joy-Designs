@@ -8,6 +8,10 @@ public interface IDesignLogic
 {
     Task<Design?> GetByIdAsync(int designId);
 
+    // For the anonymous order page. Keyed on the unguessable token so the page
+    // can't be walked by counting upwards.
+    Task<Design?> GetByPublicTokenAsync(Guid publicToken);
+
     Task<IList<Design>> GetForCustomerAsync(int customerId);
 
     // The shop: the studio's own designs, ready to order. Active only.
@@ -51,7 +55,13 @@ public class DesignResult : IOperationResult
     public string? ErrorMessage { get; private set; }
     public int DesignId { get; private set; }
 
-    public static DesignResult Ok(int designId) => new() { Success = true, DesignId = designId };
+    // The unguessable identifier the caller should put in a URL. Returned
+    // alongside the id so a controller never has to reach for the key to build
+    // a link.
+    public Guid PublicToken { get; private set; }
+
+    public static DesignResult Ok(int designId, Guid publicToken = default) =>
+        new() { Success = true, DesignId = designId, PublicToken = publicToken };
 
     public static DesignResult Fail(string message) => new() { Success = false, ErrorMessage = message };
 }

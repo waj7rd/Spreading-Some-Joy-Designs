@@ -73,6 +73,50 @@ anonymous. Found by trying it; the fix is in `Program.cs`.
 
 ---
 
+## Designs are addressed by token, never by key
+
+`/Orders/Place` is anonymous by necessity — a customer has no account. It used
+to take `designId`, a sequential integer, which meant anyone could count upwards
+and read every design ever made, artwork included. On a site built around people
+uploading their own pictures that's a real disclosure.
+
+`Designs.PublicToken` is a GUID, and it's what appears in URLs. **It is not a
+permission check** — anyone holding the link can see the design, which is what
+makes a shareable link work. What it prevents is enumeration.
+
+The POST takes the token too. Leaving the key on the form would have been the
+way back in.
+
+The migration adds the column nullable, backfills with `NEWID()` per row, *then*
+tightens to NOT NULL with a default. Adding it NOT NULL with a default in one
+step would have given every existing row the same token.
+
+## Security headers, and why `nosniff` in particular
+
+Set in `Program.cs` on every response. The one that earns its place is
+`X-Content-Type-Options: nosniff`, because this application serves bytes
+supplied by strangers from its own origin at `/Artwork/File`. Images are decoded
+and re-encoded before storage so a polyglot doesn't survive, but without
+`nosniff` a browser may still ignore our `Content-Type` and sniff a crafted file
+as HTML — stored XSS on the same origin as the staff session cookie.
+
+`style-src` allows `'unsafe-inline'` because artwork placement is expressed as
+per-request style attributes. **`script-src` does not**, which is the half that
+matters — and it's why the two inline event handlers that used to exist (the
+logo fallback and the garment picker) now live in `site.js`. A blocked inline
+handler fails silently; if you add one, it will simply stop working.
+
+## `ForwardedHeaders` is off by default, deliberately
+
+Behind a reverse proxy the app must trust `X-Forwarded-For`, or every visitor
+lands in one rate-limit bucket and every `LoginAudit` row records the proxy's
+address.
+
+But the header is client-supplied. Trusting it while the app is directly
+reachable lets anyone forge an IP and walk past the login and artwork-fetch
+limits. So it's opt-in via configuration, and the known proxy addresses have to
+be listed — turning it on is a deployment decision, not a default.
+
 ## Studio designs do not bypass the approval gate
 
 `Designs.IsStudioDesign` marks artwork the studio made itself, offered from the

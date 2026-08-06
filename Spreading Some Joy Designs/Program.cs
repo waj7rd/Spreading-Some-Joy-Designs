@@ -2,6 +2,7 @@ using System.Net;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using SpreadingJoy;
@@ -216,7 +217,44 @@ builder.Services.AddScoped<IOrderLogic, OrderLogic>();
 builder.Services.AddScoped<IOrderRequestLogic, OrderRequestLogic>();
 builder.Services.AddScoped<IUserLogic, UserLogic>();
 
+// Trusting X-Forwarded-* is opt-in, and off by default.
+//
+// It has to be on behind a reverse proxy or every request appears to come from
+// the proxy — which puts every visitor in one rate-limit bucket and writes the
+// proxy's address into every LoginAudit row, making the audit trail useless.
+//
+// It also must NOT be on when the app is directly reachable: the header is
+// client-supplied, so trusting it lets anyone forge their own IP and walk
+// straight past the login and artwork-fetch limits. Off is the safe default;
+// turning it on is a deployment decision, and the known proxy addresses have to
+// be listed or ASP.NET won't honour it anyway.
+var forwardedHeaders = builder.Configuration.GetSection("ForwardedHeaders");
+
+if (forwardedHeaders.GetValue<bool>("Enabled"))
+{
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+
+        options.KnownProxies.Clear();
+        options.KnownNetworks.Clear();
+
+        foreach (var proxy in forwardedHeaders.GetSection("KnownProxies").Get<string[]>() ?? [])
+        {
+            if (IPAddress.TryParse(proxy, out var address))
+                options.KnownProxies.Add(address);
+        }
+
+        // How many proxies sit in front. Default 1; a CDN in front of a load
+        // balancer is 2. Too high and a client can inject extra hops.
+        options.ForwardLimit = forwardedHeaders.GetValue<int?>("ForwardLimit") ?? 1;
+    });
+}
+
 var app = builder.Build();
+
+if (forwardedHeaders.GetValue<bool>("Enabled"))
+    app.UseForwardedHeaders();
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -225,6 +263,46 @@ if (!app.Environment.IsDevelopment())
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
+
+// Security headers on every response, static files included.
+//
+// The one that earns its place here is nosniff. This application serves bytes
+// supplied by strangers, from its own origin, at /Artwork/File. Images are
+// decoded and re-encoded before storage so a polyglot doesn't survive — but
+// without nosniff a browser is still free to ignore our Content-Type and sniff
+// a crafted file as HTML, and that is stored XSS on the same origin as the
+// staff session cookie.
+app.Use(async (context, next) =>
+{
+    var headers = context.Response.Headers;
+
+    headers["X-Content-Type-Options"] = "nosniff";
+
+    // The artwork queue's approve and reject buttons are worth clickjacking.
+    headers["X-Frame-Options"] = "DENY";
+
+    // Artwork URLs shouldn't travel to third parties in a Referer header.
+    headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+
+    headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=()";
+
+    // style-src allows 'unsafe-inline' because artwork placement is expressed as
+    // style attributes computed per request — the percentages that put an image
+    // on the shirt. Scripts get no such allowance, which is the half that
+    // matters; every inline handler was moved into site.js to keep it that way.
+    headers["Content-Security-Policy"] =
+        "default-src 'self'; " +
+        "script-src 'self'; " +
+        "style-src 'self' 'unsafe-inline'; " +
+        "img-src 'self' data:; " +
+        "font-src 'self'; " +
+        "object-src 'none'; " +
+        "base-uri 'self'; " +
+        "form-action 'self'; " +
+        "frame-ancestors 'none'";
+
+    await next();
+});
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();

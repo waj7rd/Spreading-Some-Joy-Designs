@@ -106,6 +106,9 @@ public class FakeDesignRepository : InMemoryRepository<Design>, IDesignRepositor
     public Task<Design?> GetWithArtworkAsync(int designId) =>
         Task.FromResult(Items.FirstOrDefault(d => d.DesignId == designId));
 
+    public Task<Design?> GetByPublicTokenAsync(Guid publicToken) =>
+        Task.FromResult(Items.FirstOrDefault(d => d.PublicToken == publicToken));
+
     public Task<IList<Design>> GetStudioDesignsAsync(bool activeOnly)
     {
         var designs = Items.Where(d => d.IsStudioDesign);

@@ -132,6 +132,14 @@ public partial class SpreadingJoyContext
                 .HasDefaultValue(false)
                 .HasAnnotation("Relational:DefaultConstraintName", "DF_Designs_IsStudioDesign");
 
+            entity.Property(e => e.PublicToken)
+                .HasDefaultValueSql("(newid())")
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_Designs_PublicToken");
+
+            // Unique because it's how a design is looked up from a URL, and
+            // indexed because that lookup happens on every order page load.
+            entity.HasIndex(e => e.PublicToken, "UQ_Designs_PublicToken").IsUnique();
+
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("(sysutcdatetime())")
                 .HasAnnotation("Relational:DefaultConstraintName", "DF_Designs_CreatedAt");

@@ -17,6 +17,19 @@ public partial class Design
 {
     public bool IsActive { get; set; } = true;
 
+    // How a design is addressed in a URL, instead of its primary key.
+    //
+    // The order page is anonymous by necessity — a customer has no account —
+    // so with a sequential id in the URL anyone could count upwards and page
+    // through every design ever made, artwork included. For a site whose whole
+    // premise is people uploading pictures, that's a real disclosure and not a
+    // theoretical one.
+    //
+    // A GUID isn't a permission check; it's an unguessable name. Anyone holding
+    // the link can see the design, which is what makes a shareable link work.
+    // What it stops is enumeration.
+    public Guid PublicToken { get; set; } = Guid.NewGuid();
+
     // The studio's own artwork, offered from the shop for anyone to order,
     // rather than something a customer brought.
     //

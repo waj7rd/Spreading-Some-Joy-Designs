@@ -20,10 +20,14 @@
                 <a class="navbar-brand p-0 me-4" asp-controller="Home" asp-action="Index">
                     @* Drop the studio's logo at wwwroot/images/logo.png and it replaces the
                        text wordmark automatically; the fallback keeps the header intact
-                       until then. *@
+                       until then.
+
+                       The fallback is wired up in site.js rather than an onerror
+                       attribute, because the Content-Security-Policy blocks inline
+                       event handlers — and a blocked handler fails silently, which
+                       is the worst way for a fallback to stop working. *@
                     <img src="~/images/logo.png" alt="Spreading Some Joy Designs"
-                         class="sj-logo"
-                         onerror="this.style.display='none';document.getElementById('sj-wordmark').style.display='block';" />
+                         class="sj-logo" data-fallback="sj-wordmark" />
                     <span class="sj-wordmark" id="sj-wordmark" style="display:none;">
                         <span class="sj-wordmark-name">Spreading Some <span>Joy</span></span>
                         <span class="sj-wordmark-tag">Designs</span>

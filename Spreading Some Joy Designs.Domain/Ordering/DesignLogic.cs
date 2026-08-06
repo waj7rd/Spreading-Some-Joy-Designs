@@ -31,6 +31,11 @@ public class DesignLogic : IDesignLogic
     public async Task<Design?> GetByIdAsync(int designId) =>
         await _designRepository.GetWithArtworkAsync(designId);
 
+    public async Task<Design?> GetByPublicTokenAsync(Guid publicToken) =>
+        publicToken == Guid.Empty
+            ? null
+            : await _designRepository.GetByPublicTokenAsync(publicToken);
+
     public async Task<IList<Design>> GetForCustomerAsync(int customerId)
     {
         var designs = await _designRepository.FindByAsync(d => d.CustomerId == customerId && d.IsActive);
@@ -64,7 +69,7 @@ public class DesignLogic : IDesignLogic
         await _designRepository.AddAsync(design);
         await _designRepository.SaveChangesAsync();
 
-        return DesignResult.Ok(design.DesignId);
+        return DesignResult.Ok(design.DesignId, design.PublicToken);
     }
 
     public async Task<DesignResult> UpdateAsync(int designId, DesignDetails details)
@@ -82,7 +87,7 @@ public class DesignLogic : IDesignLogic
         ApplyPlacements(design, details);
 
         await _designRepository.SaveChangesAsync();
-        return DesignResult.Ok(design.DesignId);
+        return DesignResult.Ok(design.DesignId, design.PublicToken);
     }
 
     public async Task<DesignResult> SetActiveAsync(int designId, bool isActive)
@@ -94,7 +99,7 @@ public class DesignLogic : IDesignLogic
         design.IsActive = isActive;
         await _designRepository.SaveChangesAsync();
 
-        return DesignResult.Ok(design.DesignId);
+        return DesignResult.Ok(design.DesignId, design.PublicToken);
     }
 
     public async Task<DesignResult> ValidateForOrderAsync(int designId)
@@ -145,7 +150,7 @@ public class DesignLogic : IDesignLogic
                 return DesignResult.Fail(placementError);
         }
 
-        return DesignResult.Ok(design.DesignId);
+        return DesignResult.Ok(design.DesignId, design.PublicToken);
     }
 
     // ---- internals ----

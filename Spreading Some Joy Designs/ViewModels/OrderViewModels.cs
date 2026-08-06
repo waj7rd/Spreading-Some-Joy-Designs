@@ -81,8 +81,10 @@ public class PlaceOrderViewModel
     [Display(Name = "Phone")]
     public string Phone { get; set; } = string.Empty;
 
-    [Range(1, int.MaxValue, ErrorMessage = "Pick a design.")]
-    public int DesignId { get; set; }
+    // The design is addressed by its unguessable token, never by its primary
+    // key. That's true of the POST as well as the GET — otherwise the form
+    // would be the way back in to pointing at somebody else's design.
+    public Guid DesignToken { get; set; }
 
     [Required(ErrorMessage = "Pick a size.")]
     [Display(Name = "Size")]

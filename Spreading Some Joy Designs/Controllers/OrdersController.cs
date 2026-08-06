@@ -37,10 +37,15 @@ public class OrdersController : Controller
 
     // ---- public ----
 
-    // GET /Orders/Place?designId=1
-    public async Task<IActionResult> Place(int designId)
+    // GET /Orders/Place?design={token}
+    //
+    // Addressed by the design's unguessable token rather than its primary key.
+    // This page has to be anonymous — a customer has no account — so with a
+    // sequential id anyone could count upwards and read every design ever made,
+    // artwork included.
+    public async Task<IActionResult> Place(Guid design)
     {
-        var model = await BuildPlaceViewModelAsync(designId);
+        var model = await BuildPlaceViewModelAsync(design);
         if (model == null)
             return NotFound();
 
@@ -62,6 +67,12 @@ public class OrdersController : Controller
                 "Please confirm you have the right to use this artwork.");
         }
 
+        // Resolved from the token, so the posted form can't be repointed at
+        // another design by editing a number.
+        var design = await _designLogic.GetByPublicTokenAsync(model.DesignToken);
+        if (design == null || !design.IsActive)
+            return NotFound();
+
         if (!ModelState.IsValid)
             return await RedisplayAsync(model);
 
@@ -69,7 +80,7 @@ public class OrdersController : Controller
             CustomerName: model.CustomerName,
             Email: model.Email,
             Phone: model.Phone,
-            DesignId: model.DesignId,
+            DesignId: design.DesignId,
             SizeCode: model.SizeCode,
             Quantity: model.Quantity,
             RequestedFor: model.RequestedFor,
@@ -91,7 +102,7 @@ public class OrdersController : Controller
     // render whatever preview and price they liked.
     private async Task<IActionResult> RedisplayAsync(PlaceOrderViewModel model, string? errorMessage = null)
     {
-        var fresh = await BuildPlaceViewModelAsync(model.DesignId);
+        var fresh = await BuildPlaceViewModelAsync(model.DesignToken);
         if (fresh == null)
             return NotFound();
 
@@ -105,19 +116,19 @@ public class OrdersController : Controller
 
         // Priced at the size they actually chose, not the default, so a
         // rejected form still shows the right figure.
-        model.UnitPrice = await UnitPriceForAsync(model.DesignId, model.SizeCode, fresh.UnitPrice);
+        model.UnitPrice = await UnitPriceForAsync(model.DesignToken, model.SizeCode, fresh.UnitPrice);
 
         model.ErrorMessage = errorMessage;
 
         return View(model);
     }
 
-    private async Task<decimal> UnitPriceForAsync(int designId, string? sizeCode, decimal fallback)
+    private async Task<decimal> UnitPriceForAsync(Guid designToken, string? sizeCode, decimal fallback)
     {
         if (string.IsNullOrWhiteSpace(sizeCode))
             return fallback;
 
-        var design = await _designLogic.GetByIdAsync(designId);
+        var design = await _designLogic.GetByPublicTokenAsync(designToken);
         if (design == null)
             return fallback;
 
@@ -286,9 +297,9 @@ public class OrdersController : Controller
 
     // ---- internals ----
 
-    private async Task<PlaceOrderViewModel?> BuildPlaceViewModelAsync(int designId)
+    private async Task<PlaceOrderViewModel?> BuildPlaceViewModelAsync(Guid designToken)
     {
-        var design = await _designLogic.GetByIdAsync(designId);
+        var design = await _designLogic.GetByPublicTokenAsync(designToken);
         if (design == null || !design.IsActive)
             return null;
 
@@ -300,7 +311,7 @@ public class OrdersController : Controller
 
         return new PlaceOrderViewModel
         {
-            DesignId = design.DesignId,
+            DesignToken = design.PublicToken,
             DesignName = design.Name,
             GarmentName = $"{product.Colour} {product.Name}",
             AvailableSizes = product.Sizes.ToList(),

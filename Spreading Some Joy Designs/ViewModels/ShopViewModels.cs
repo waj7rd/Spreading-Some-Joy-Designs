@@ -4,6 +4,12 @@ namespace SpreadingJoy.ViewModels;
 public class StudioDesignViewModel
 {
     public int Id { get; set; }
+
+    // What goes in the "order this" link. Studio designs are public by nature,
+    // but they use the same addressing as everything else so there's only one
+    // way designs are referenced in URLs.
+    public Guid PublicToken { get; set; }
+
     public string Name { get; set; } = string.Empty;
     public string GarmentName { get; set; } = string.Empty;
     public string ColourHex { get; set; } = "#ffffff";

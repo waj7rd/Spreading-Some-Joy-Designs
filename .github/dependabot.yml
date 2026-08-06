@@ -1,0 +1,35 @@
+# Watches the dependencies for security updates.
+#
+# The one that genuinely matters here is SixLabors.ImageSharp. This application
+# decodes image files chosen by strangers — that is its whole purpose — and
+# image parsers are among the most reliable sources of CVEs in any stack. The
+# version is pinned to 3.1.*, which only picks up a patch when somebody happens
+# to rebuild; this opens a pull request when one lands.
+
+version: 2
+
+updates:
+  - package-ecosystem: nuget
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+
+    groups:
+      # Framework packages move together and are noisy separately.
+      aspnet-and-ef:
+        patterns:
+          - "Microsoft.EntityFrameworkCore*"
+          - "Microsoft.AspNetCore*"
+          - "Microsoft.Extensions*"
+
+      test-tooling:
+        patterns:
+          - "xunit*"
+          - "Microsoft.NET.Test.Sdk"
+          - "coverlet*"
+
+    # Deliberately not grouped with anything: an ImageSharp advisory should
+    # arrive as its own pull request rather than buried in a batch.

@@ -81,6 +81,7 @@ public class ShopController : Controller
         var row = new StudioDesignViewModel
         {
             Id = design.DesignId,
+            PublicToken = design.PublicToken,
             Name = design.Name,
             GarmentName = product == null ? "—" : $"{product.Colour} {product.Name}",
             ColourHex = product?.ColourHex ?? "#ffffff",

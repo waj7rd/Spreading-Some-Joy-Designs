@@ -32,6 +32,15 @@ public class DesignRepository : GenericRepository<SpreadingJoyContext, Design>, 
             .ToListAsync();
     }
 
+    public async Task<Design?> GetByPublicTokenAsync(Guid publicToken)
+    {
+        return await Context.Designs
+            .Include(d => d.Product)
+            .Include(d => d.FrontArtwork)
+            .Include(d => d.BackArtwork)
+            .FirstOrDefaultAsync(d => d.PublicToken == publicToken);
+    }
+
     public async Task<Design?> GetWithArtworkAsync(int designId)
     {
         return await Context.Designs

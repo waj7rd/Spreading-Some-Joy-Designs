@@ -47,7 +47,7 @@ else
                         <span class="fw-bold">from @design.Price.ToString("C")</span>
                         <a class="btn btn-sm btn-joy"
                            asp-controller="Orders" asp-action="Place"
-                           asp-route-designId="@design.Id">Order this</a>
+                           asp-route-design="@design.PublicToken">Order this</a>
                     </div>
                 </div>
             </div>

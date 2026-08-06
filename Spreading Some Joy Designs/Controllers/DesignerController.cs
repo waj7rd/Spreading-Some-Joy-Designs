@@ -171,7 +171,7 @@ public class DesignerController : Controller
             return RedirectToAction("Manage", "Shop");
         }
 
-        return RedirectToAction("Place", "Orders", new { designId = result.DesignId });
+        return RedirectToAction("Place", "Orders", new { design = result.PublicToken });
     }
 
     // The signed-in staff member, when there is one.

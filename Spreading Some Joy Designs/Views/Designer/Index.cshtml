@@ -96,7 +96,9 @@
         <div class="sj-card p-3 mb-3">
             <div class="fw-bold mb-2">1. Pick a garment</div>
             <form asp-action="Index" method="get">
-                <select name="productId" class="form-select" onchange="this.form.submit()">
+                @* data-submit-on-change rather than an inline onchange: the CSP
+                   blocks inline handlers. See site.js. *@
+                <select name="productId" class="form-select" data-submit-on-change>
                     @foreach (var p in Model.Products)
                     {
                         <option value="@p.Id" selected="@(p.Id == Model.ProductId)">

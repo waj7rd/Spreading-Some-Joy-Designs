@@ -16,11 +16,19 @@ public class UserLogicTests
         _logic = new UserLogic(_users, _audit, new FixedStudioClock(Now));
     }
 
+    // hashCost is deliberately nothing like the real one. These tests are about
+    // who may sign in, not about how expensive guessing is, and hashing at the
+    // production count turned a three-second suite into a thirty-second one —
+    // which is how a suite that gets run constantly stops being one.
+    //
+    // The count travels inside the hash, so Verify still works against these.
+    // Anything that genuinely cares about the cost sets its own hash.
     private User SeedUser(
         string email = "sam@studio.test",
         string role = Roles.Admin,
         bool isActive = true,
-        string password = GoodPassword)
+        string password = GoodPassword,
+        int hashCost = 1_000)
     {
         var user = new User
         {
@@ -29,7 +37,7 @@ public class UserLogicTests
             Email = email,
             Role = role,
             IsActive = isActive,
-            PasswordHash = PasswordHasher.Hash(password),
+            PasswordHash = PasswordHasherTests.HashAtCost(password, hashCost),
             CreatedAt = Now
         };
 
@@ -75,6 +83,55 @@ public class UserLogicTests
         Assert.Equal("nobody@studio.test", entry.EmailAttempted);
         Assert.Equal(LoginAuditEvent.Failure, entry.Event);
     }
+
+    // ---- bringing old hashes up to the current cost ----
+
+    [Fact]
+    public async Task An_old_hash_is_upgraded_on_a_successful_sign_in()
+    {
+        var user = SeedUser();
+        user.PasswordHash = PasswordHasherTests.HashAtCost(GoodPassword, 1_000);
+
+        var result = await _logic.AuthenticateAsync("sam@studio.test", GoodPassword, null);
+
+        Assert.True(result.Succeeded);
+
+        // Rewritten at the current cost, and still the same password — an
+        // upgrade that locked the account out would be worse than none.
+        Assert.False(PasswordHasher.NeedsRehash(user.PasswordHash));
+        Assert.True(PasswordHasher.Verify(GoodPassword, user.PasswordHash));
+    }
+
+    [Fact]
+    public async Task A_hash_already_at_the_current_cost_is_left_untouched()
+    {
+        var user = SeedUser();
+
+        // One of the few places the real cost is the point of the test.
+        user.PasswordHash = PasswordHasher.Hash(GoodPassword);
+        var before = user.PasswordHash;
+
+        await _logic.AuthenticateAsync("sam@studio.test", GoodPassword, null);
+
+        // Every sign-in writing the row again would be churn for nothing.
+        Assert.Equal(before, user.PasswordHash);
+    }
+
+    [Fact]
+    public async Task A_failed_sign_in_does_not_touch_the_hash()
+    {
+        var user = SeedUser();
+        var before = PasswordHasherTests.HashAtCost(GoodPassword, 1_000);
+        user.PasswordHash = before;
+
+        await _logic.AuthenticateAsync("sam@studio.test", "wrong", null);
+
+        // The upgrade rides on knowing the password is right. Rehashing on a
+        // failure would mean rehashing whatever the guesser typed.
+        Assert.Equal(before, user.PasswordHash);
+    }
+
+    // ---- lockout ----
 
     [Fact]
     public async Task Five_wrong_passwords_lock_the_account()

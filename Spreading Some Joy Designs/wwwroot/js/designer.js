@@ -33,6 +33,12 @@
         var minMm = num(shirt.dataset.minMm) || 20;
         var minDpi = num(shirt.dataset.minDpi) || 150;
 
+        // The widest this image prints while still clearing minDpi, worked out
+        // server-side by ImageLimits so there's one definition of the rule.
+        // Zero means the artwork's pixel size isn't known — treated as no limit
+        // rather than as a limit of nothing.
+        var maxMm = num(shirt.dataset.maxMm);
+
         if (!areaWmm || !areaHmm) return;
 
         var inputs = {
@@ -57,6 +63,32 @@
             w: num(inputs.w.value),
             h: num(inputs.h.value)
         };
+
+        var limitToggle = document.querySelector('[data-limit-toggle="' + field + '"]');
+        var centreButton = document.querySelector('[data-center="' + field + '"]');
+
+        // ---- the sharpness ceiling ----
+        //
+        // Turning the DPI readout from advice into a stop. Dragging past this
+        // point produces a placement DesignLogic refuses on save, so the limit
+        // is better met while the artwork is still under the cursor.
+        //
+        // Switched off, everything below is inert and the old behaviour stands:
+        // resize freely, readout goes red, server has the final say.
+        function limiting() {
+            return maxMm > 0 && limitToggle !== null && limitToggle.checked;
+        }
+
+        function ceilingW() {
+            return limiting() ? Math.min(maxMm, areaWmm) : areaWmm;
+        }
+
+        // Height needs its own ceiling because the number boxes set width and
+        // height independently — only dragging keeps them in proportion. It's
+        // the same sum as the width: maxMm x aspect is pxH / minDpi in inches.
+        function ceilingH() {
+            return limiting() ? Math.min(Math.floor(maxMm * aspect), areaHmm) : areaHmm;
+        }
 
         // ---- drawing ----
 
@@ -141,8 +173,15 @@
                     var width = Math.round(originW + (ev.clientX - startX) * scale);
 
                     // Can't run off the right edge, can't go below the smallest
-                    // print the press will do.
-                    width = clamp(width, minWidth, areaWmm - state.x);
+                    // print the press will do, and — with the toggle on — can't
+                    // go past the size this image stays sharp at.
+                    //
+                    // clamp() returns the minimum when the maximum falls below
+                    // it, so an image too small to print sharply at any usable
+                    // size stops at the press minimum rather than collapsing.
+                    // The server refuses that placement and says what would
+                    // work; silently pinning it to nothing would not.
+                    width = clamp(width, minWidth, Math.min(ceilingW(), areaWmm - state.x));
 
                     var height = Math.round(width * aspect);
 
@@ -199,8 +238,8 @@
 
         Object.keys(inputs).forEach(function (key) {
             inputs[key].addEventListener('input', function () {
-                state.w = clamp(num(inputs.w.value), minMm, areaWmm);
-                state.h = clamp(num(inputs.h.value), minMm, areaHmm);
+                state.w = clamp(num(inputs.w.value), minMm, ceilingW());
+                state.h = clamp(num(inputs.h.value), minMm, ceilingH());
                 state.x = clamp(num(inputs.x.value), 0, areaWmm - state.w);
                 state.y = clamp(num(inputs.y.value), 0, areaHmm - state.h);
                 render();
@@ -228,9 +267,59 @@
             }
         });
 
+        // ---- centre across ----
+        //
+        // Horizontal only, deliberately. How high the artwork sits on the chest
+        // is a design decision somebody makes on purpose; level from left to
+        // right is what "centred" means on a garment, and it's the one thing
+        // that's genuinely fiddly to hit by dragging.
+        if (centreButton) {
+            centreButton.addEventListener('click', function () {
+                state.x = clamp(Math.round((areaWmm - state.w) / 2), 0, areaWmm - state.w);
+                render();
+            });
+        }
+
+        // ---- keeping the ceiling honest ----
+        //
+        // Switching the toggle on while the artwork is already oversized has to
+        // bring it back in. Without this the setting looks broken: it's on, the
+        // readout is still red, and nothing moves until the next drag.
+        function shrinkToCeiling() {
+            if (!limiting()) return;
+
+            var width = Math.min(state.w, ceilingW());
+            var height = Math.round(width * aspect);
+
+            if (height > ceilingH()) {
+                height = ceilingH();
+                width = Math.round(height / aspect);
+            }
+
+            // Same reasoning as the resize clamp: the press minimum wins over
+            // the sharpness ceiling, and the server explains the rest.
+            if (width < minMm || height < minMm) return;
+            if (width === state.w) return;
+
+            state.w = width;
+            state.h = height;
+            state.x = clamp(state.x, 0, areaWmm - state.w);
+            state.y = clamp(state.y, 0, areaHmm - state.h);
+            render();
+        }
+
+        if (limitToggle) {
+            limitToggle.addEventListener('change', shrinkToCeiling);
+        }
+
         // The stored size may pre-date a print-area change, so normalise once
         // on load rather than waiting for the first drag to correct it.
         render();
+
+        // A design that saved successfully already cleared the DPI check, so
+        // this is a no-op for anything round-tripped through the server. It
+        // catches placements that pre-date a rule change.
+        shrinkToCeiling();
     }
 
     // ---- helpers ----

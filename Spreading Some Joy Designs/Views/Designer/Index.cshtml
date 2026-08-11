@@ -241,6 +241,33 @@
                                            name="@(prefix).YMm" value="@p.YMm" min="0" max="@product.PrintAreaHeightMm" />
                                 </div>
                             </div>
+
+                            @* Both of these drive the same hidden millimetre inputs the
+                               boxes above do, so the form still posts exactly what it
+                               always did and the server still re-checks all of it. *@
+                            <div class="d-flex flex-wrap align-items-center gap-3 mt-2">
+                                @if (p.ImageWidthPx.HasValue)
+                                {
+                                    @* On by default: the placement it prevents is one the
+                                       server would refuse anyway, so the customer meets the
+                                       limit while they can still act on it rather than at
+                                       save time. Off is for deciding to accept a soft
+                                       print — the studio can still reject it. *@
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input" type="checkbox" role="switch"
+                                               id="sharp-@prefix" data-limit-toggle="@prefix" checked />
+                                        <label class="form-check-label small" for="sharp-@prefix">
+                                            Keep it sharp — stop at @maxWidth mm
+                                        </label>
+                                    </div>
+                                }
+
+                                <button type="button" class="btn btn-sm btn-outline-joy"
+                                        data-center="@prefix">
+                                    Centre across
+                                </button>
+                            </div>
+
                             <div class="form-text">
                                 This image stays sharp up to about @maxWidth mm wide
                                 (@p.ImageWidthPx&times;@p.ImageHeightPx pixels).

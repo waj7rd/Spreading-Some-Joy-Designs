@@ -45,6 +45,19 @@ public class ShirtPreviewViewModel
     public int MinPlacementMm { get; set; } = 20;
     public int MinimumDpi { get; set; } = 150;
 
+    // The widest this particular image can be printed and still clear
+    // MinimumDpi — the same figure DesignLogic refuses on. Derived here rather
+    // than recomputed in JavaScript so there is one definition of the rule and
+    // the browser cannot drift from the server.
+    //
+    // Zero when the artwork's dimensions aren't known, which the designer reads
+    // as "no limit" — better to allow a placement the server may reject than to
+    // silently pin the artwork to nothing on missing data.
+    public int MaxPrintWidthMm =>
+        ImageWidthPx > 0 && MinimumDpi > 0
+            ? Domain.Artworks.ImageLimits.MaxPrintableWidthMm(ImageWidthPx, MinimumDpi)
+            : 0;
+
     public bool HasArtwork => !string.IsNullOrEmpty(ImageUrl);
 
     // ---- artwork position, as a percentage of the print area ----

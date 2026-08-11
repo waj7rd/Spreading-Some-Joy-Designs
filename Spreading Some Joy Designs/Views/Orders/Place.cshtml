@@ -120,11 +120,20 @@
                         <div class="form-check mb-0">
                             <input asp-for="RightsAttested" class="form-check-input" type="checkbox" />
                             <label asp-for="RightsAttested" class="form-check-label fw-semibold"></label>
+                            @* Two clauses, deliberately, because they fail in different
+                               ways. Where it came from is the ownership question. What's
+                               in it is the one that actually causes trouble: an image
+                               generator makes something nobody owns, so a customer can
+                               tick a provenance-only box in complete good faith while
+                               holding a cartoon character. *@
                             <div class="small mt-1">
-                                By ticking this you're confirming the artwork is yours, is licensed
-                                to you, or is in the public domain — and that you're asking us to
-                                print it on that basis. We review every image before printing, and
-                                we'll come back to you if there's a problem.
+                                By ticking this you're confirming the artwork is yours to use —
+                                your own work, something you made with an image generator,
+                                something licensed to you, or something in the public domain —
+                                and that it doesn't feature cartoon or film characters, brand or
+                                team logos, or recognisable real people. You're asking us to
+                                print it on that basis. We review every image before printing,
+                                and we'll come back to you if there's a problem.
                             </div>
                             <span asp-validation-for="RightsAttested" class="text-danger small"></span>
                         </div>

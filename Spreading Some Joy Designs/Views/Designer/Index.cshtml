@@ -1,6 +1,7 @@
 @model DesignerViewModel
 @{
-    ViewData["Title"] = "Design your shirt";
+    ViewData["Title"] = "Design Your Own Custom Printed Shirt";
+    ViewData["MetaDescription"] = "Upload your artwork or paste a link, place it on the front or back, pick your garment and size — we'll print your custom shirt here for local pickup.";
 
     var product = Model.Products.FirstOrDefault(p => p.Id == Model.ProductId) ?? Model.Products.First();
 

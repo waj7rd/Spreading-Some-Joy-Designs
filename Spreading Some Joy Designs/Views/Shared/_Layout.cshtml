@@ -3,6 +3,30 @@
     var action = ViewContext.RouteData.Values["action"]?.ToString();
     string NavClass(string c, string? a = null) =>
         controller == c && (a == null || action == a) ? "nav-link active" : "nav-link";
+
+    // Replace YOUR-DOMAIN.com with the live domain before launch.
+    const string SiteDomain = "https://YOUR-DOMAIN.com";
+
+    var metaDesc = ViewData["MetaDescription"] as string
+        ?? "Spreading Some Joy Designs — custom printed shirts made right here. Upload your artwork or shop our designs. Order online, pick up locally.";
+
+    var canonicalUrl = SiteDomain + Context.Request.Path;
+    var ogTitle      = (ViewData["Title"] as string ?? "Spreading Some Joy Designs") + " · Spreading Some Joy Designs";
+
+    // Staff screens and the checkout/confirmation pages shouldn't earn a search
+    // result. Kept in step with wwwroot/robots.txt: that file asks crawlers not to
+    // fetch these, this covers the ones they reach from a link anyway. A view can
+    // force the decision either way with ViewData["NoIndex"].
+    var noIndex = ViewData["NoIndex"] as bool? ?? (controller, action) switch
+    {
+        ("Account", _) or ("Artwork", _) or ("Customers", _) or ("Settings", _) or ("Staff", _) => true,
+        ("Orders", _) => true,
+        ("Products", "Manage") or ("Products", "Create") or ("Products", "Edit") => true,
+        ("Shop", "Manage") => true,
+        ("Designer", "NoProducts") => true,
+        ("Home", "Error") => true,
+        _ => false
+    };
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -10,6 +34,56 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] &middot; Spreading Some Joy Designs</title>
+    @if (noIndex)
+    {
+        <meta name="robots" content="noindex, follow" />
+    }
+
+    <!-- SEO: description & canonical -->
+    <meta name="description" content="@metaDesc" />
+    <link rel="canonical" href="@canonicalUrl" />
+
+    <!-- Open Graph -->
+    <meta property="og:type"        content="website" />
+    <meta property="og:site_name"   content="Spreading Some Joy Designs" />
+    <meta property="og:title"       content="@ogTitle" />
+    <meta property="og:description" content="@metaDesc" />
+    <meta property="og:url"         content="@canonicalUrl" />
+    <meta property="og:image"       content="@(SiteDomain)/images/og-image.jpg" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card"        content="summary" />
+    <meta name="twitter:title"       content="@ogTitle" />
+    <meta name="twitter:description" content="@metaDesc" />
+
+    @* JSON-LD lives in the markup rather than a C# string: Razor's tokenizer
+       rejects raw string literals ("""), and verbatim strings would mean
+       doubling every quote in the JSON. In markup, @@ escapes a literal @,
+       and the url below reuses the same SiteDomain as the canonical tag.
+
+       TODO: Fill in the real street address, city, zip, and phone number. *@
+    <script type="application/ld+json">
+        {
+          "@@context": "https://schema.org",
+          "@@type": "LocalBusiness",
+          "name": "Spreading Some Joy Designs",
+          "description": "Custom printed shirts made locally. Upload your own artwork or choose from our in-house designs.",
+          "url": "@SiteDomain",
+          "telephone": "TODO-PHONE-NUMBER",
+          "address": {
+            "@@type": "PostalAddress",
+            "streetAddress": "TODO-STREET-ADDRESS",
+            "addressLocality": "TODO-CITY",
+            "addressRegion": "MO",
+            "postalCode": "TODO-ZIP",
+            "addressCountry": "US"
+          },
+          "sameAs": [
+            "https://YOUR-GOOGLE-BUSINESS-PROFILE-URL"
+          ]
+        }
+    </script>
+
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
@@ -127,16 +201,24 @@
     <footer class="sj-footer">
         <div class="container">
             <div class="row g-4">
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <div class="sj-footer-brand mb-2">Spreading Some Joy Designs</div>
                     <div>Custom printed shirts, one at a time or a hundred.</div>
                 </div>
-                <div class="col-md-6">
-                    <div class="sj-footer-brand mb-2">Before you order</div>
-                    <div class="small">
+                @* TODO: Replace the address and phone below with real values *@
+                <div class="col-md-4">
+                    <div class="sj-footer-brand mb-2">Find Us</div>
+                    <address class="mb-0" style="font-style:normal;">
+                        <div>TODO-STREET-ADDRESS</div>
+                        <div>TODO-CITY, MO TODO-ZIP</div>
+                    </address>
+                </div>
+                <div class="col-md-4">
+                    <div class="sj-footer-brand mb-2">Contact</div>
+                    <div><a href="tel:TODO-PHONE-NUMBER">TODO-PHONE-DISPLAY</a></div>
+                    <div class="small mt-2">
                         We print artwork you own. Anything you upload or link gets a quick look
-                        from us before it reaches the press, and we'll come back to you if
-                        there's a problem with it.
+                        from us before it reaches the press.
                     </div>
                 </div>
             </div>

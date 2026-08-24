@@ -145,7 +145,7 @@ public class DesignLogic : IDesignLogic
                     : DesignResult.Fail($"The {side.Label} artwork is still waiting to be reviewed.");
             }
 
-            var placementError = CheckPlacement(product, side.Placement, artwork, side.Label);
+            var placementError = CheckPlacement(product, side.Placement, side.Label);
             if (placementError != null)
                 return DesignResult.Fail(placementError);
         }
@@ -184,7 +184,7 @@ public class DesignLogic : IDesignLogic
             if (artwork.Status == ArtworkStatus.Rejected)
                 return ($"The {label} artwork was rejected: {artwork.RejectionReason}", null);
 
-            var placementError = CheckPlacement(product, placement, artwork, label);
+            var placementError = CheckPlacement(product, placement, label);
             if (placementError != null)
                 return (placementError, null);
         }
@@ -194,7 +194,7 @@ public class DesignLogic : IDesignLogic
 
     // Every rule about where artwork may sit and how big it may be. Shared by
     // the save path and the order path so the two can't drift.
-    private static string? CheckPlacement(Product product, Placement placement, Artwork artwork, string label)
+    private static string? CheckPlacement(Product product, Placement placement, string label)
     {
         if (placement.WidthMm < MinPlacementMm || placement.HeightMm < MinPlacementMm)
             return $"The {label} print is too small — {MinPlacementMm}mm is the smallest we run.";
@@ -209,11 +209,11 @@ public class DesignLogic : IDesignLogic
                    $"print area on this garment.";
         }
 
-        // Resolution is judged at the size it's actually printed, not at upload.
-        var quality = ImageLimits.CheckPrintQuality(
-            artwork.WidthPx, artwork.HeightPx, placement.WidthMm, placement.HeightMm);
-
-        return quality == null ? null : $"On the {label}: {quality}";
+        // Resolution is deliberately not judged here. The designer shows a live
+        // DPI readout and warns below ImageLimits.MinimumDpi, and Karrie signs the
+        // artwork off before it goes to press — a soft warning she can overrule
+        // beats a hard block she has to work around.
+        return null;
     }
 
     private static void ApplyPlacements(Design design, DesignDetails details)

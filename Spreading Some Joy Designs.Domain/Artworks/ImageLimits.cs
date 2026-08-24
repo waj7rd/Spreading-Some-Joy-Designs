@@ -24,13 +24,15 @@ public static class ImageLimits
     public static readonly string[] AllowedContentTypes =
         ["image/png", "image/jpeg", "image/gif", "image/webp"];
 
-    // Print quality thresholds, in dots per inch, measured at the size the
-    // artwork is actually placed at.
+    // The resolution the designer starts warning at, in dots per inch, measured
+    // at the size the artwork is actually placed at. 300 is what a print shop
+    // wants; 150 is what it will grudgingly run.
     //
-    // 300 is what a print shop wants. 150 is what it will grudgingly run.
-    // Below that the customer gets a blurry shirt and blames the studio, so
-    // it's refused rather than warned about.
-    public const int GoodDpi = 300;
+    // Nothing here refuses a placement for being under it. The designer shows a
+    // live DPI readout and a warning below this line, and Karrie reviews the
+    // artwork before it goes to press — she makes the call on whether the
+    // resolution is good enough for that particular job. A soft warning she can
+    // overrule beats a hard block she has to work around.
     public const int MinimumDpi = 150;
 
     private const double MmPerInch = 25.4;
@@ -49,30 +51,14 @@ public static class ImageLimits
         return (int)Math.Floor(pixels / (printedMm / MmPerInch));
     }
 
-    // The widest this image can be printed and still hold the given DPI. Used
-    // to tell the customer what size would work, rather than only that the one
-    // they chose doesn't.
+    // The widest this image can be printed and still hold the given DPI. Shown
+    // next to the artwork so the customer is told what size would work, rather
+    // than left to guess at sizes.
     public static int MaxPrintableWidthMm(int pixels, int dpi = MinimumDpi)
     {
         if (dpi <= 0)
             return 0;
 
         return (int)Math.Floor(pixels / (double)dpi * MmPerInch);
-    }
-
-    // Null when the placement prints acceptably, otherwise the reason it won't.
-    public static string? CheckPrintQuality(int widthPx, int heightPx, int printedWidthMm, int printedHeightMm)
-    {
-        var horizontal = EffectiveDpi(widthPx, printedWidthMm);
-        var vertical = EffectiveDpi(heightPx, printedHeightMm);
-        var effective = Math.Min(horizontal, vertical);
-
-        if (effective >= MinimumDpi)
-            return null;
-
-        var maxWidth = MaxPrintableWidthMm(widthPx);
-
-        return $"That image is only {effective} DPI at {printedWidthMm}mm wide — we need at least {MinimumDpi} " +
-               $"to print it sharply. It would work up to about {maxWidth}mm across, or you can use a larger image.";
     }
 }

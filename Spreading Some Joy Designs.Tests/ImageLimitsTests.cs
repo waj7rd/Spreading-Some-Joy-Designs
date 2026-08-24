@@ -2,6 +2,11 @@ namespace SpreadingJoy.Tests;
 
 // Print quality is a property of the image *and* the size it's printed at,
 // never of the image alone. These lock that in.
+//
+// Nothing in ImageLimits refuses a placement for being under MinimumDpi — the
+// warning is the designer's, and the call is Karrie's. The arithmetic those two
+// lean on is what's tested here; that low resolution no longer blocks a save is
+// covered in DesignLogicTests.
 public class ImageLimitsTests
 {
     [Fact]
@@ -31,38 +36,9 @@ public class ImageLimitsTests
     }
 
     [Fact]
-    public void A_large_image_printed_small_passes()
+    public void Max_printable_width_of_a_zero_dpi_target_is_zero_rather_than_a_divide_by_zero()
     {
-        Assert.Null(ImageLimits.CheckPrintQuality(3000, 3000, 200, 200));
-    }
-
-    [Fact]
-    public void A_small_image_printed_large_is_refused_with_a_usable_alternative()
-    {
-        var message = ImageLimits.CheckPrintQuality(400, 400, 300, 300);
-
-        Assert.NotNull(message);
-
-        // The refusal has to say what *would* work, or the customer is stuck
-        // guessing at sizes until one is accepted.
-        Assert.Contains("would work up to about", message);
-    }
-
-    [Fact]
-    public void Quality_is_judged_on_the_worse_of_the_two_axes()
-    {
-        // Wide and short: fine horizontally, hopeless vertically. Judging on
-        // width alone would pass a print that comes out visibly stretched-soft.
-        var message = ImageLimits.CheckPrintQuality(4000, 200, 300, 300);
-
-        Assert.NotNull(message);
-    }
-
-    [Fact]
-    public void Exactly_at_the_minimum_dpi_is_accepted()
-    {
-        // 150 DPI over 100mm needs 590.5px, so 591 clears it and 590 doesn't.
-        Assert.Null(ImageLimits.CheckPrintQuality(591, 591, 100, 100));
-        Assert.NotNull(ImageLimits.CheckPrintQuality(590, 590, 100, 100));
+        Assert.Equal(0, ImageLimits.MaxPrintableWidthMm(1000, 0));
+        Assert.Equal(0, ImageLimits.MaxPrintableWidthMm(1000, -5));
     }
 }

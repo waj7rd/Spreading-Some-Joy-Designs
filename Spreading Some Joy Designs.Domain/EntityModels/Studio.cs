@@ -39,6 +39,19 @@ public partial class Studio
     // schema uses everywhere else a small fixed set needs one column.
     public string ClosedDaysRaw { get; set; } = "Saturday,Sunday";
 
+    // Whether the studio will post an order out rather than only handing it over
+    // the counter. Off by default: a shop that hasn't sorted packaging and postage
+    // shouldn't be quietly offering it on the storefront.
+    public bool OffersShipping { get; set; }
+
+    // A flat charge per shipped order. Flat rather than calculated: the studio
+    // posts garments in a box, mostly to Missouri addresses, and a rate table for
+    // that is more machinery than the problem deserves.
+    //
+    // Snapshotted onto the order when it's placed, the same way UnitPrice is.
+    // Changing this number must never restate what somebody already agreed to pay.
+    public decimal ShippingFee { get; set; }
+
     public string TierName { get; set; } = nameof(Tier.Storefront);
 
     public DateTime CreatedAt { get; set; }

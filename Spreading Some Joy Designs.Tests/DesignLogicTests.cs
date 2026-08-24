@@ -125,16 +125,17 @@ public class DesignLogicTests
     }
 
     [Fact]
-    public async Task A_low_resolution_image_printed_large_is_refused()
+    public async Task A_low_resolution_image_printed_large_is_accepted_and_left_to_the_studio()
     {
+        // 300px across 300mm is about 25 DPI. The designer warns about it and
+        // Karrie decides at review time; the save itself does not refuse it.
         SeedProduct();
         SeedArtwork(px: 300);
 
         var result = await _logic.CreateAsync(new DesignDetails(
             "Blurry", 1, null, new Placement(1, 0, 0, 300, 300), null));
 
-        Assert.False(result.Success);
-        Assert.Contains("DPI", result.ErrorMessage);
+        Assert.True(result.Success);
     }
 
     [Fact]

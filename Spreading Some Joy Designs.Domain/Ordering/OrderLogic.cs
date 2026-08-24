@@ -68,6 +68,22 @@ public class OrderLogic : IOrderLogic
         if (!customer.IsActive)
             return OrderResult.Fail("That customer record has been archived.");
 
+        // Checked on this path as well as on the request path. Both the staff
+        // screen and the public storefront arrive here, and neither may skip it.
+        var method = FulfilmentMethod.Normalise(request.FulfilmentMethod);
+        var requestedAddress = request.ShipTo ?? ShippingAddress.None;
+
+        var fulfilmentError = Fulfilment.Check(method, requestedAddress, _settings.OffersShipping);
+        if (fulfilmentError != null)
+            return OrderResult.Fail(fulfilmentError);
+
+        var shipTo = Fulfilment.ToStore(method, requestedAddress);
+
+        // Read once, here, and stored on the order. A studio that puts its postage
+        // up next month must not change what this customer was quoted -- the same
+        // rule the line prices follow.
+        var shippingFee = FulfilmentMethod.IsShipping(method) ? _settings.ShippingFee : 0m;
+
         var dueOn = request.DueOn.Date;
 
         var dateError = StudioCalendar.CheckDueDate(_settings, dueOn, _clock.Today);
@@ -128,6 +144,13 @@ public class OrderLogic : IOrderLogic
             Status = OrderStatus.Received,
             DueOn = dueOn,
             Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim(),
+            FulfilmentMethod = method,
+            ShipToLine1 = shipTo.Line1,
+            ShipToLine2 = shipTo.Line2,
+            ShipToCity = shipTo.City,
+            ShipToState = shipTo.State,
+            ShipToPostalCode = shipTo.PostalCode,
+            ShippingFee = shippingFee,
             RightsAttested = true,
             RightsAttestedAt = _clock.UtcNow,
             CreatedAt = _clock.UtcNow

@@ -12,6 +12,20 @@ public class UserLogic : IUserLogic
     private const int MaxFailedAttempts = 5;
     private const int LockoutMinutes = 15;
 
+    // Something to check the password against when the email is unknown, purely
+    // so that path costs what the real one costs.
+    //
+    // Answering an unrecognised address in the same words as a wrong password
+    // was only ever half of it. Returning before any hashing happens answers it
+    // in a fraction of the time as well, and that gap is wide enough to read
+    // over a network — six hundred thousand iterations against none. Whoever is
+    // probing then gets the list of real addresses off the clock instead of out
+    // of the message.
+    //
+    // Built once per process from a random string nobody holds, at whatever the
+    // current cost is, so it stays in step when Iterations is raised.
+    private static readonly string DummyPasswordHash = PasswordHasher.Hash(Guid.NewGuid().ToString());
+
     private readonly IUserRepository _userRepository;
     private readonly ILoginAuditRepository _auditRepository;
     private readonly IStudioClock _clock;
@@ -34,10 +48,29 @@ public class UserLogic : IUserLogic
         // can't be used to discover which addresses are real.
         if (user == null)
         {
+            // The result is deliberately discarded — it is the time this takes
+            // that matters, not the answer. Deleting this line as dead code
+            // reopens the timing oracle and nothing fails to tell you.
+            PasswordHasher.Verify(password ?? string.Empty, DummyPasswordHash);
+
             await AuditAsync(null, email, LoginAuditEvent.Failure, ipAddress);
             return AuthenticationResult.InvalidCredentials();
         }
 
+        // Saying "locked until 2:15" confirms the address is real — five wrong
+        // guesses is all it takes to ask the question. That is a considered
+        // trade, not an oversight.
+        //
+        // Hiding it would mean the one person this ever actually happens to —
+        // an associate who mistyped their password five times — is told only
+        // that it is wrong, while it keeps being wrong for fifteen minutes for
+        // a reason nothing on screen explains. They conclude the site is
+        // broken and ring the person who built it.
+        //
+        // What is bought for that is hiding the existence of three addresses at
+        // a studio that puts its email on its own contact page. The timing fix
+        // above closes the leak that was silent and unintended; this one is
+        // neither, and the message is worth more than the secret.
         if (user.LockedOutUntil.HasValue && user.LockedOutUntil.Value > _clock.UtcNow)
         {
             await AuditAsync(user.UserId, email, LoginAuditEvent.LockedOut, ipAddress);
@@ -75,6 +108,13 @@ public class UserLogic : IUserLogic
         user.FailedLoginCount = 0;
         user.LockedOutUntil = null;
         user.LastLoginAt = _clock.UtcNow;
+
+        // The password is in hand and known to be right — the only moment an
+        // old hash can be brought up to the current cost. Silent on purpose:
+        // there is nothing here for the person signing in to do or know.
+        if (PasswordHasher.NeedsRehash(user.PasswordHash))
+            user.PasswordHash = PasswordHasher.Hash(password);
+
         await _userRepository.SaveChangesAsync();
 
         await AuditAsync(user.UserId, email, LoginAuditEvent.Success, ipAddress);

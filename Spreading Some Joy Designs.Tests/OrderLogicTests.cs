@@ -15,9 +15,11 @@ public class OrderLogicTests
     private readonly FakeArtworkRepository _artworks = new();
     private readonly FixedStudioClock _clock = new(Now);
 
-    private OrderLogic Build(int capacity = 60)
+    private OrderLogic Build(
+        int capacity = 60, bool offersShipping = false, decimal shippingFee = 0m)
     {
-        var settings = new StudioSettings(capacity, 3, new[] { DayOfWeek.Saturday, DayOfWeek.Sunday });
+        var settings = new StudioSettings(
+            capacity, 3, new[] { DayOfWeek.Saturday, DayOfWeek.Sunday }, offersShipping, shippingFee);
         var designLogic = new DesignLogic(_designs, _products, _artworks, _clock);
 
         return new OrderLogic(_orders, _designs, _products, _customers, designLogic, settings, _clock);
@@ -100,12 +102,16 @@ public class OrderLogicTests
         int quantity = 1,
         string size = "M",
         bool rights = true,
-        DateTime? dueOn = null) =>
+        DateTime? dueOn = null,
+        string method = FulfilmentMethod.Pickup,
+        ShippingAddress? shipTo = null) =>
         new(CustomerId: 1,
             DueOn: dueOn ?? Due,
             Lines: [new OrderLineRequest(1, size, quantity)],
             RightsAttested: rights,
-            Notes: null);
+            Notes: null,
+            FulfilmentMethod: method,
+            ShipTo: shipTo);
 
     // ---- the rights gate ----
 
@@ -384,6 +390,9 @@ public class OrderLogicTests
     [Fact]
     public async Task An_unknown_status_is_refused()
     {
+        // "Shipped" on purpose: the studio posts orders out, but that is a
+        // fulfilment method rather than a stage on the board. Nothing moves an
+        // order into a status the chain does not have.
         SeedEverything();
         var logic = Build();
 
@@ -402,5 +411,103 @@ public class OrderLogicTests
         var result = await Build().PlaceAsync(Request());
 
         Assert.False(result.Success);
+    }
+
+    // ---- postage ----
+
+    private static readonly ShippingAddress Address =
+        new("14 Sycamore Street", null, "Sedalia", "MO", "65301");
+
+    [Fact]
+    public async Task Postage_is_added_to_the_total_without_touching_the_garments()
+    {
+        SeedEverything();
+
+        await Build(offersShipping: true, shippingFee: 8m)
+            .PlaceAsync(Request(quantity: 2, method: FulfilmentMethod.Shipping, shipTo: Address));
+
+        var order = _orders.All.Single();
+
+        // Subtotal is still purely the snapshotted lines. Postage sits beside it
+        // rather than inside it, which is what keeps the garment count and the
+        // press capacity untouched by a delivery charge.
+        Assert.Equal(order.OrderLines.Sum(l => l.LineTotal), order.Subtotal);
+        Assert.Equal(8m, order.ShippingFee);
+        Assert.Equal(order.Subtotal + 8m, order.Total);
+        Assert.Equal(2, order.GarmentCount);
+    }
+
+    [Fact]
+    public async Task A_collection_order_pays_no_postage_even_when_the_studio_charges_for_it()
+    {
+        SeedEverything();
+
+        await Build(offersShipping: true, shippingFee: 8m).PlaceAsync(Request());
+
+        var order = _orders.All.Single();
+
+        Assert.Equal(0m, order.ShippingFee);
+        Assert.Equal(order.Subtotal, order.Total);
+    }
+
+    [Fact]
+    public async Task The_postage_charged_is_snapshotted_rather_than_looked_up_later()
+    {
+        // The same rule the line prices follow. A studio putting its postage up
+        // must not change what a customer already agreed to pay — and reading
+        // the fee live would do exactly that, silently, on every past order.
+        SeedEverything();
+
+        await Build(offersShipping: true, shippingFee: 8m)
+            .PlaceAsync(Request(method: FulfilmentMethod.Shipping, shipTo: Address));
+
+        var order = _orders.All.Single();
+        var totalWhenPlaced = order.Total;
+
+        // The studio doubles its postage the following week.
+        _ = Build(offersShipping: true, shippingFee: 16m);
+
+        Assert.Equal(8m, order.ShippingFee);
+        Assert.Equal(totalWhenPlaced, order.Total);
+    }
+
+    [Fact]
+    public async Task An_order_asking_to_be_posted_by_a_studio_that_does_not_ship_is_refused()
+    {
+        SeedEverything();
+
+        var result = await Build(offersShipping: false)
+            .PlaceAsync(Request(method: FulfilmentMethod.Shipping, shipTo: Address));
+
+        Assert.False(result.Success);
+        Assert.Empty(_orders.All);
+    }
+
+    [Fact]
+    public async Task An_order_asking_to_be_posted_with_no_address_is_refused()
+    {
+        SeedEverything();
+
+        var result = await Build(offersShipping: true, shippingFee: 8m)
+            .PlaceAsync(Request(method: FulfilmentMethod.Shipping, shipTo: null));
+
+        Assert.False(result.Success);
+        Assert.Empty(_orders.All);
+    }
+
+    [Fact]
+    public async Task Postage_does_not_compete_for_press_capacity()
+    {
+        // Capacity counts garments. If postage had been modelled as an order
+        // line it would arrive here as a quantity and quietly eat a slot.
+        SeedEverything();
+
+        await Build(capacity: 10, offersShipping: true, shippingFee: 8m)
+            .PlaceAsync(Request(quantity: 10, method: FulfilmentMethod.Shipping, shipTo: Address));
+
+        var capacity = await Build(capacity: 10, offersShipping: true).GetCapacityAsync(Due);
+
+        Assert.Equal(10, capacity.Promised);
+        Assert.True(capacity.IsFull);
     }
 }

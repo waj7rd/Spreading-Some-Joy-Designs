@@ -59,6 +59,18 @@ public class StudioSettingsViewModel
     [Display(Name = "Closed on")]
     public List<DayOfWeek> ClosedDays { get; set; } = [];
 
+    // Whether the storefront offers postage at all. Off means the ship-or-collect
+    // choice is never rendered, and the Domain refuses it even if one is posted.
+    [Display(Name = "Offer shipping")]
+    public bool OffersShipping { get; set; }
+
+    // Flat, per order. The bound is repeated in StudioLogic, which is the rule --
+    // this one only exists so the refusal arrives in the field rather than as a
+    // banner at the top of the page.
+    [Range(0, 500, ErrorMessage = "The shipping fee has to be between 0 and 500 dollars.")]
+    [Display(Name = "Shipping fee")]
+    public decimal ShippingFee { get; set; }
+
     // Read-only on this screen, shown so staff can see what the studio is on
     // without being able to change it.
     public string CurrentTier { get; set; } = string.Empty;

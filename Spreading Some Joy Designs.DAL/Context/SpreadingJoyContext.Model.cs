@@ -30,6 +30,15 @@ public partial class SpreadingJoyContext
                 .HasMaxLength(100)
                 .HasColumnName("ClosedDays");
 
+            entity.Property(e => e.OffersShipping)
+                .HasDefaultValue(false)
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_Studios_OffersShipping");
+
+            entity.Property(e => e.ShippingFee)
+                .HasColumnType("decimal(10, 2)")
+                .HasDefaultValue(0m)
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_Studios_ShippingFee");
+
             entity.Property(e => e.TierName)
                 .IsRequired()
                 .HasMaxLength(20)
@@ -204,6 +213,26 @@ public partial class SpreadingJoyContext
             entity.Property(e => e.Notes).HasMaxLength(500);
             entity.Property(e => e.CancellationReason).HasMaxLength(500);
 
+            // Postage is a charge on the order, not a line on it. decimal, never
+            // float: money that cannot represent 0.10 exactly has no business in a
+            // column somebody is going to be invoiced from.
+            entity.Property(e => e.ShippingFee)
+                .HasColumnType("decimal(10, 2)")
+                .HasDefaultValue(0m)
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_Orders_ShippingFee");
+
+            entity.Property(e => e.FulfilmentMethod)
+                .IsRequired()
+                .HasMaxLength(20)
+                .HasDefaultValue(FulfilmentMethod.Pickup)
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_Orders_FulfilmentMethod");
+
+            entity.Property(e => e.ShipToLine1).HasMaxLength(200);
+            entity.Property(e => e.ShipToLine2).HasMaxLength(200);
+            entity.Property(e => e.ShipToCity).HasMaxLength(100);
+            entity.Property(e => e.ShipToState).HasMaxLength(50);
+            entity.Property(e => e.ShipToPostalCode).HasMaxLength(20);
+
             entity.Property(e => e.Status)
                 .IsRequired()
                 .HasMaxLength(20)
@@ -223,9 +252,11 @@ public partial class SpreadingJoyContext
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("FK_Orders_Customers");
 
-            // Computed in C# from the lines.
+            // Computed in C# from the lines and the stored fee.
+            entity.Ignore(e => e.Subtotal);
             entity.Ignore(e => e.Total);
             entity.Ignore(e => e.GarmentCount);
+            entity.Ignore(e => e.IsShipped);
         });
 
         modelBuilder.Entity<OrderLine>(entity =>
@@ -265,6 +296,18 @@ public partial class SpreadingJoyContext
             entity.Property(e => e.RequestedFor).HasColumnType("date");
             entity.Property(e => e.Notes).HasMaxLength(500);
             entity.Property(e => e.DeclineReason).HasMaxLength(500);
+
+            entity.Property(e => e.FulfilmentMethod)
+                .IsRequired()
+                .HasMaxLength(20)
+                .HasDefaultValue(FulfilmentMethod.Pickup)
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_OrderRequests_FulfilmentMethod");
+
+            entity.Property(e => e.ShipToLine1).HasMaxLength(200);
+            entity.Property(e => e.ShipToLine2).HasMaxLength(200);
+            entity.Property(e => e.ShipToCity).HasMaxLength(100);
+            entity.Property(e => e.ShipToState).HasMaxLength(50);
+            entity.Property(e => e.ShipToPostalCode).HasMaxLength(20);
 
             entity.Property(e => e.Status)
                 .IsRequired()

@@ -34,6 +34,8 @@ public class SettingsController : Controller
             DailyPrintCapacity = studio.DailyPrintCapacity,
             TurnaroundDays = studio.TurnaroundDays,
             ClosedDays = studio.ClosedDays.ToList(),
+            OffersShipping = studio.OffersShipping,
+            ShippingFee = studio.ShippingFee,
             CurrentTier = studio.Tier.ToString(),
             SuccessMessage = TempData["SettingsSuccess"] as string
         });
@@ -63,7 +65,9 @@ public class SettingsController : Controller
             model.TimeZoneId,
             model.DailyPrintCapacity,
             model.TurnaroundDays,
-            model.ClosedDays);
+            model.ClosedDays,
+            model.OffersShipping,
+            model.ShippingFee);
 
         if (!result.Success)
         {

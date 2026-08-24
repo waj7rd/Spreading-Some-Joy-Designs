@@ -184,13 +184,17 @@ supplied reaches a path.
 Not of the file alone. The same 1000px image is a crisp 300 DPI at 85mm across
 and an unusable 42 DPI at 600mm.
 
-This is why resolution can't be checked at upload time, and why
-`DesignLogic.CheckPlacement` runs `ImageLimits.CheckPrintQuality` against the
-placement rather than the artwork. Below 150 DPI is refused rather than warned
-about — the customer gets a blurry shirt and blames the studio.
+This is why resolution can't be checked at upload time: the designer computes it
+live from the placement, against `ImageLimits.MinimumDpi`.
 
-The refusal always states the width that *would* work, or the customer is left
-guessing at sizes until one is accepted.
+Below 150 DPI is **warned about, not refused**. `DesignLogic.CheckPlacement`
+enforces the geometry — minimum size, inside the print area — and stops there.
+The studio reviews every piece of artwork before it goes to press, so Karrie
+makes the resolution call on the job in front of her; a soft warning she can
+overrule beats a hard block she has to work around.
+
+The warning states the width that *would* work — `ImageLimits.MaxPrintableWidthMm`
+— or the customer is left guessing at sizes.
 
 ---
 
@@ -210,6 +214,51 @@ silently moved without the customer's say-so.
 never restate what somebody already agreed to pay. The design's *name* is
 deliberately not copied — it stays resolvable through the FK, and a rename is
 usually a correction history should reflect. Same reasoning as Greg's Auto.
+
+`Orders.ShippingFee` follows the same rule for the same reason. It is copied
+from the studio record when the order is placed, never read live. A studio
+putting its postage up next month must not restate what a customer already
+agreed to.
+
+## Postage is a charge on the order, not a line on it
+
+`Order.Total` used to be defined as the sum of the lines. It is now
+`Subtotal + ShippingFee`, where `Subtotal` is that old sum.
+
+Postage could have been an `OrderLine` instead, and that would have been worse.
+A line has a design, a size and a quantity, and it lands in every count of how
+many garments the press has to run — so a shipped order would have quietly eaten
+a slot of the day's capacity for a cardboard box. Verified:
+`OrderLogicTests.Postage_does_not_compete_for_press_capacity`.
+
+Existing orders carry `ShippingFee = 0`, so `Total` still equals `Subtotal` for
+every order placed before shipping existed. Nothing was restated by adding this.
+
+## Shipping is a switch on the studio, not a tier feature
+
+`Studios.OffersShipping` is off by default, and turning it on is something the
+studio does from the settings screen — the same place capacity, turnaround and
+closed days live. It describes how this shop operates, not what it has paid for,
+which is why it isn't a `Feature` on the licensing tier.
+
+With it off, the storefront never renders the ship-or-collect choice **and**
+`Fulfilment.Check` refuses a shipping request anyway. Both, not either: the form
+is a suggestion, and the switch can change while somebody has the page open.
+
+The rules are applied again at acceptance rather than only at submission, so a
+request that was submitted while shipping was on is refused if it's still in the
+queue when the studio turns shipping off. Same shape as a request stranded by a
+day filling up. Verified:
+`OrderRequestLogicTests.Turning_shipping_off_after_a_request_was_submitted_blocks_the_acceptance`.
+
+A collection order is never refused for any of this — switching postage off must
+not stop the studio taking orders.
+
+## A collection order stores no address at all
+
+Not a partial one. `Fulfilment.ToStore` drops whatever was posted when the
+method is collection, so a half-filled address can't sit on a collection order
+waiting for somebody — or something — to read it as a shipping label.
 
 ## Anonymous input never reaches customer records
 
@@ -233,8 +282,9 @@ only caught exceptions would commit the very orphans it exists to prevent.
 | Which URLs the server will fetch | `Artworks/ImageUrlPolicy` + `DAL/Imaging/HttpImageFetcher` |
 | What counts as a usable image | `Artworks/ArtworkLogic` + `ImageLimits` |
 | Nothing prints without human approval — studio designs included | `Ordering/DesignLogic.ValidateForOrderAsync` |
-| Artwork fits the print area, and prints sharply | `Ordering/DesignLogic.CheckPlacement` |
+| Artwork fits the print area (resolution is warned about, not enforced) | `Ordering/DesignLogic.CheckPlacement` |
 | Rights attested; date, capacity, size valid | `Ordering/OrderLogic.PlaceAsync` |
+| Shipping needs a full address, and a studio that ships | `EntityModels/Fulfilment.Check`, from both `OrderLogic.PlaceAsync` and `OrderRequestLogic` |
 | Anonymous input never reaches customer records | `Ordering/OrderRequestLogic` |
 | Lockout, enumeration resistance, last-Admin guards | `Identity/UserLogic` |
 | A studio cannot change its own tier | `Shared/StudioLogic` + the view model having no tier property |
@@ -272,7 +322,7 @@ not defaults to rely on.
 
 ## Tests
 
-**Spreading Some Joy Designs.Tests** (182) — business rules against in-memory
+**Spreading Some Joy Designs.Tests** (241) — business rules against in-memory
 fakes. Fast, no database, run constantly.
 
 There is no smoke-test suite yet. Greg's Auto has one, and it exists there
@@ -280,3 +330,8 @@ because unit tests are structurally blind to a class of failure that only shows
 up against a real database (a migration once added a NOT NULL column with no
 default, breaking every INSERT while every unit test stayed green). The same
 exposure applies here. Worth adding.
+
+The shipping columns were added with that in mind: every one of them is either
+nullable or `NOT NULL` with a default, so no existing `INSERT` in the codebase
+breaks. That was checked against the real database rather than assumed — but by
+hand, once, which is exactly the thing a smoke-test suite would do on every run.

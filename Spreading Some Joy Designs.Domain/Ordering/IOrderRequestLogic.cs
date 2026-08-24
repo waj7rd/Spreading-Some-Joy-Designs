@@ -33,7 +33,13 @@ public record SubmitOrderRequest(
     int Quantity,
     DateTime RequestedFor,
     bool RightsAttested,
-    string? Notes);
+    string? Notes,
+
+    // Defaulted to collection so every existing caller still describes a pickup
+    // order, and so a form that never mentions shipping cannot accidentally ask
+    // for it. A null address is the same thing as an empty one.
+    string FulfilmentMethod = EntityModels.FulfilmentMethod.Pickup,
+    ShippingAddress? ShipTo = null);
 
 public class OrderRequestResult : IOperationResult
 {

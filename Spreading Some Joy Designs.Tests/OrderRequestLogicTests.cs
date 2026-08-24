@@ -18,14 +18,16 @@ public class OrderRequestLogicTests
 
     private Artwork _artwork = null!;
 
-    private OrderRequestLogic Build(int capacity = 60)
+    private OrderRequestLogic Build(
+        int capacity = 60, bool offersShipping = false, decimal shippingFee = 0m)
     {
-        var settings = new StudioSettings(capacity, 3, new[] { DayOfWeek.Saturday, DayOfWeek.Sunday });
+        var settings = new StudioSettings(
+            capacity, 3, new[] { DayOfWeek.Saturday, DayOfWeek.Sunday }, offersShipping, shippingFee);
         var designLogic = new DesignLogic(_designs, _products, _artworks, _clock);
         var orderLogic = new OrderLogic(_orders, _designs, _products, _customers, designLogic, settings, _clock);
 
         return new OrderRequestLogic(
-            _requests, _customers, _designs, _products, designLogic, orderLogic, _unitOfWork, _clock);
+            _requests, _customers, _designs, _products, designLogic, orderLogic, settings, _unitOfWork, _clock);
     }
 
     private void SeedEverything(string artworkStatus = ArtworkStatus.Approved)
@@ -83,7 +85,9 @@ public class OrderRequestLogicTests
         int quantity = 1,
         string size = "M",
         bool rights = true,
-        string? email = "sam@example.test") =>
+        string? email = "sam@example.test",
+        string method = FulfilmentMethod.Pickup,
+        ShippingAddress? shipTo = null) =>
         new(CustomerName: "Sam Ortiz",
             Email: email,
             Phone: "555 0100",
@@ -92,7 +96,9 @@ public class OrderRequestLogicTests
             Quantity: quantity,
             RequestedFor: Due,
             RightsAttested: rights,
-            Notes: null);
+            Notes: null,
+            FulfilmentMethod: method,
+            ShipTo: shipTo);
 
     // ---- submitting ----
 
@@ -254,6 +260,129 @@ public class OrderRequestLogicTests
 
         Assert.Single(_customers.All);
         Assert.Equal(2, _orders.All.Count);
+    }
+
+    // ---- shipping ----
+
+    private static readonly ShippingAddress Address =
+        new("14 Sycamore Street", "Apt 2", "Sedalia", "MO", "65301");
+
+    [Fact]
+    public async Task A_shipping_request_keeps_the_address_it_was_given()
+    {
+        SeedEverything();
+
+        var result = await Build(offersShipping: true, shippingFee: 8m)
+            .SubmitAsync(Submission(method: FulfilmentMethod.Shipping, shipTo: Address));
+
+        Assert.True(result.Success);
+
+        var request = _requests.All.Single();
+        Assert.Equal(FulfilmentMethod.Shipping, request.FulfilmentMethod);
+        Assert.Equal("14 Sycamore Street", request.ShipToLine1);
+        Assert.Equal("Apt 2", request.ShipToLine2);
+        Assert.Equal("Sedalia", request.ShipToCity);
+        Assert.Equal("MO", request.ShipToState);
+        Assert.Equal("65301", request.ShipToPostalCode);
+    }
+
+    [Fact]
+    public async Task A_shipping_request_is_refused_when_the_studio_does_not_ship()
+    {
+        // The storefront never renders the choice in this state, so this is the
+        // hand-built post — or the page somebody had open when it was switched
+        // off. Either way nothing is stored.
+        SeedEverything();
+
+        var result = await Build(offersShipping: false)
+            .SubmitAsync(Submission(method: FulfilmentMethod.Shipping, shipTo: Address));
+
+        Assert.False(result.Success);
+        Assert.Empty(_requests.All);
+    }
+
+    [Fact]
+    public async Task A_shipping_request_without_an_address_is_refused()
+    {
+        SeedEverything();
+
+        var result = await Build(offersShipping: true)
+            .SubmitAsync(Submission(method: FulfilmentMethod.Shipping, shipTo: null));
+
+        Assert.False(result.Success);
+        Assert.Empty(_requests.All);
+    }
+
+    [Fact]
+    public async Task A_collection_request_stores_no_address_even_if_one_is_posted()
+    {
+        SeedEverything();
+
+        var result = await Build(offersShipping: true)
+            .SubmitAsync(Submission(method: FulfilmentMethod.Pickup, shipTo: Address));
+
+        Assert.True(result.Success);
+
+        var request = _requests.All.Single();
+        Assert.Equal(FulfilmentMethod.Pickup, request.FulfilmentMethod);
+        Assert.Null(request.ShipToLine1);
+        Assert.Null(request.ShipToCity);
+    }
+
+    [Fact]
+    public async Task Accepting_a_shipping_request_carries_the_address_onto_the_order()
+    {
+        // The whole point of the holding table is that what the customer asked
+        // for survives the trip. An address that stopped at the request would
+        // leave staff with a parcel and nowhere to send it.
+        SeedEverything();
+        var logic = Build(offersShipping: true, shippingFee: 8m);
+
+        var submitted = await logic.SubmitAsync(
+            Submission(method: FulfilmentMethod.Shipping, shipTo: Address));
+
+        var accepted = await logic.AcceptAsync(submitted.OrderRequestId, 9, Due);
+
+        Assert.True(accepted.Success);
+
+        var order = _orders.All.Single();
+        Assert.True(order.IsShipped);
+        Assert.Equal("14 Sycamore Street", order.ShipToLine1);
+        Assert.Equal("65301", order.ShipToPostalCode);
+        Assert.Equal(8m, order.ShippingFee);
+    }
+
+    [Fact]
+    public async Task Accepting_a_collection_request_leaves_the_order_with_no_postage()
+    {
+        SeedEverything();
+        var logic = Build(offersShipping: true, shippingFee: 8m);
+
+        var submitted = await logic.SubmitAsync(Submission());
+        await logic.AcceptAsync(submitted.OrderRequestId, 9, Due);
+
+        var order = _orders.All.Single();
+        Assert.False(order.IsShipped);
+        Assert.Equal(0m, order.ShippingFee);
+        Assert.Equal(order.Subtotal, order.Total);
+    }
+
+    [Fact]
+    public async Task Turning_shipping_off_after_a_request_was_submitted_blocks_the_acceptance()
+    {
+        // The request sat in the queue while the studio stopped shipping. The
+        // rules are applied at acceptance, not at submission, which is the same
+        // reason a filled-up day can strand a request.
+        SeedEverything();
+
+        var submitted = await Build(offersShipping: true, shippingFee: 8m)
+            .SubmitAsync(Submission(method: FulfilmentMethod.Shipping, shipTo: Address));
+
+        var accepted = await Build(offersShipping: false)
+            .AcceptAsync(submitted.OrderRequestId, 9, Due);
+
+        Assert.False(accepted.Success);
+        Assert.Empty(_orders.All);
     }
 
     [Fact]

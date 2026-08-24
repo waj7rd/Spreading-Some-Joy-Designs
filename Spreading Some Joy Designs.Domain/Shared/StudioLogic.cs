@@ -14,6 +14,11 @@ public class StudioLogic : IStudioLogic
     private const int MinTurnaround = 1;
     private const int MaxTurnaround = 90;
 
+    // A ceiling on the postage charge, for the same reason capacity has one: the
+    // number is typed by hand into a box, and a slipped decimal point here is a
+    // quote no customer would agree to.
+    private const decimal MaxShippingFee = 500m;
+
     private readonly IStudioRepository _studioRepository;
     private readonly IStudioContext _studioContext;
 
@@ -40,7 +45,9 @@ public class StudioLogic : IStudioLogic
         string timeZoneId,
         int dailyPrintCapacity,
         int turnaroundDays,
-        IReadOnlyCollection<DayOfWeek> closedDays)
+        IReadOnlyCollection<DayOfWeek> closedDays,
+        bool offersShipping,
+        decimal shippingFee)
     {
         if (string.IsNullOrWhiteSpace(name))
             return StudioResult.Fail("Give the studio a name.");
@@ -55,6 +62,14 @@ public class StudioLogic : IStudioLogic
         // earliest-date search would run to its cap on every page load.
         if (closedDays.Distinct().Count() >= 7)
             return StudioResult.Fail("The studio has to be open at least one day a week.");
+
+        // Checked even when shipping is switched off, so a saved-and-forgotten
+        // bad figure cannot start charging the moment somebody ticks the box.
+        if (shippingFee < 0m)
+            return StudioResult.Fail("The shipping fee cannot be negative.");
+
+        if (shippingFee > MaxShippingFee)
+            return StudioResult.Fail($"The shipping fee has to be {MaxShippingFee:C} or less.");
 
         // Validated here rather than trusted: a bad id would throw from
         // StudioClock on the next request, and the settings screen is a much
@@ -77,6 +92,8 @@ public class StudioLogic : IStudioLogic
         studio.DailyPrintCapacity = dailyPrintCapacity;
         studio.TurnaroundDays = turnaroundDays;
         studio.ClosedDaysRaw = string.Join(',', closedDays.Distinct().OrderBy(d => d));
+        studio.OffersShipping = offersShipping;
+        studio.ShippingFee = decimal.Round(shippingFee, 2, MidpointRounding.AwayFromZero);
 
         await _studioRepository.SaveChangesAsync();
 

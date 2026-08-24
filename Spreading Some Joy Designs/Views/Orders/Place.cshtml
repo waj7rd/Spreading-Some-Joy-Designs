@@ -50,6 +50,18 @@
                 }
             </div>
 
+            @* Rendered whenever postage is on offer, hidden until it's chosen, so
+               the figure is already on the page rather than appearing from a
+               script the moment somebody picks the radio. *@
+            @if (Model.OffersShipping)
+            {
+                <div class="d-flex justify-content-between mt-3 pt-3 border-top"
+                     id="postage-line" hidden="@(!Model.IsShipping)">
+                    <div class="sj-muted">Postage</div>
+                    <div class="fw-bold">+@Model.ShippingFee.ToString("C")</div>
+                </div>
+            }
+
             @if (Model.Front.IsPending || Model.Back.IsPending)
             {
                 <div class="sj-muted mt-3">
@@ -115,6 +127,81 @@
                     <span asp-validation-for="Notes" class="text-danger small"></span>
                 </div>
 
+                @* The choice is only offered when the studio has switched postage
+                   on. It's refused server-side either way — Fulfilment.Check reads
+                   the studio record, not this form. *@
+                @if (Model.OffersShipping)
+                {
+                    <div class="col-12">
+                        <label class="form-label">@Html.DisplayNameFor(m => m.FulfilmentMethod)</label>
+
+                        <div class="sj-card p-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="FulfilmentMethod"
+                                       id="fulfil-pickup" value="@FulfilmentMethod.Pickup"
+                                       checked="@(!Model.IsShipping)" data-fulfilment="pickup" />
+                                <label class="form-check-label" for="fulfil-pickup">
+                                    Collect from the studio
+                                    <span class="sj-muted d-block small">Nothing extra to pay.</span>
+                                </label>
+                            </div>
+
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="radio" name="FulfilmentMethod"
+                                       id="fulfil-shipping" value="@FulfilmentMethod.Shipping"
+                                       checked="@Model.IsShipping" data-fulfilment="shipping" />
+                                <label class="form-check-label" for="fulfil-shipping">
+                                    Post it to me
+                                    <span class="sj-muted d-block small">
+                                        Adds @Model.ShippingFee.ToString("C") to the order.
+                                    </span>
+                                </label>
+                            </div>
+
+                            <span asp-validation-for="FulfilmentMethod" class="text-danger small"></span>
+
+                            @* Always rendered, hidden until it's needed. The fields have
+                               to exist in the DOM either way, or a refused submission
+                               would come back with the address the customer typed gone. *@
+                            <div class="row g-2 mt-3" id="ship-to" hidden="@(!Model.IsShipping)">
+                                <div class="col-12">
+                                    <label asp-for="ShipToLine1" class="form-label"></label>
+                                    <input asp-for="ShipToLine1" class="form-control"
+                                           autocomplete="address-line1" />
+                                    <span asp-validation-for="ShipToLine1" class="text-danger small"></span>
+                                </div>
+
+                                <div class="col-12">
+                                    <label asp-for="ShipToLine2" class="form-label"></label>
+                                    <input asp-for="ShipToLine2" class="form-control"
+                                           autocomplete="address-line2" />
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label asp-for="ShipToCity" class="form-label"></label>
+                                    <input asp-for="ShipToCity" class="form-control"
+                                           autocomplete="address-level2" />
+                                    <span asp-validation-for="ShipToCity" class="text-danger small"></span>
+                                </div>
+
+                                <div class="col-md-3">
+                                    <label asp-for="ShipToState" class="form-label"></label>
+                                    <input asp-for="ShipToState" class="form-control"
+                                           autocomplete="address-level1" />
+                                    <span asp-validation-for="ShipToState" class="text-danger small"></span>
+                                </div>
+
+                                <div class="col-md-3">
+                                    <label asp-for="ShipToPostalCode" class="form-label"></label>
+                                    <input asp-for="ShipToPostalCode" class="form-control"
+                                           autocomplete="postal-code" />
+                                    <span asp-validation-for="ShipToPostalCode" class="text-danger small"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+
                 <div class="col-12">
                     <div class="sj-rights-box">
                         <div class="form-check mb-0">
@@ -151,4 +238,11 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+
+    @* A file rather than an inline block: the CSP is script-src 'self', so an
+       inline script would be blocked outright. *@
+    @if (Model.OffersShipping)
+    {
+        <script src="~/js/fulfilment.js" asp-append-version="true"></script>
+    }
 }

@@ -73,6 +73,31 @@ public class OrdersController : Controller
         if (design == null || !design.IsActive)
             return NotFound();
 
+        // Address fields are required only when postage has been asked for. Done
+        // here rather than with attributes so each refusal lands on the field it
+        // belongs to; Fulfilment.Check in the Domain is what actually gates the
+        // order, and it runs whatever this does.
+        if (FulfilmentMethod.IsShipping(model.FulfilmentMethod))
+        {
+            if (!_settings.OffersShipping)
+            {
+                ModelState.AddModelError(nameof(model.FulfilmentMethod),
+                    "We’re not shipping at the moment — please pick collection instead.");
+            }
+
+            if (string.IsNullOrWhiteSpace(model.ShipToLine1))
+                ModelState.AddModelError(nameof(model.ShipToLine1), "We need a street address to ship to.");
+
+            if (string.IsNullOrWhiteSpace(model.ShipToCity))
+                ModelState.AddModelError(nameof(model.ShipToCity), "We need a city to ship to.");
+
+            if (string.IsNullOrWhiteSpace(model.ShipToState))
+                ModelState.AddModelError(nameof(model.ShipToState), "We need a state to ship to.");
+
+            if (string.IsNullOrWhiteSpace(model.ShipToPostalCode))
+                ModelState.AddModelError(nameof(model.ShipToPostalCode), "We need a ZIP code to ship to.");
+        }
+
         if (!ModelState.IsValid)
             return await RedisplayAsync(model);
 
@@ -85,7 +110,14 @@ public class OrdersController : Controller
             Quantity: model.Quantity,
             RequestedFor: model.RequestedFor,
             RightsAttested: model.RightsAttested,
-            Notes: model.Notes));
+            Notes: model.Notes,
+            FulfilmentMethod: model.FulfilmentMethod,
+            ShipTo: new ShippingAddress(
+                model.ShipToLine1,
+                model.ShipToLine2,
+                model.ShipToCity,
+                model.ShipToState,
+                model.ShipToPostalCode)));
 
         if (!result.Success)
             return await RedisplayAsync(model, result.ErrorMessage);
@@ -113,6 +145,8 @@ public class OrdersController : Controller
         model.Back = fresh.Back;
         model.ExtendedSizeUpcharge = fresh.ExtendedSizeUpcharge;
         model.PrintedSides = fresh.PrintedSides;
+        model.OffersShipping = fresh.OffersShipping;
+        model.ShippingFee = fresh.ShippingFee;
 
         // Priced at the size they actually chose, not the default, so a
         // rejected form still shows the right figure.
@@ -167,11 +201,18 @@ public class OrdersController : Controller
                 Status = o.Status,
                 DueOn = o.DueOn,
                 GarmentCount = o.OrderLines.Sum(l => l.Quantity),
-                Total = o.OrderLines.Sum(l => l.UnitPrice * l.Quantity),
+                // Order.Total, not a fresh sum of the lines — the lines alone are
+                // the subtotal now, and a board disagreeing with the order screen
+                // about what an order came to is a phone call.
+                Total = o.Total,
                 CreatedAt = o.CreatedAt,
                 Notes = o.Notes,
 
                 // Judged against the studio's today, not the server's.
+                // Changes what the day actually involves: a shipped order still has to
+                // be packed and posted once the press is finished with it.
+                IsShipping = o.IsShipped,
+
                 IsOverdue = o.DueOn < today
             }).ToList()
         });
@@ -198,6 +239,17 @@ public class OrdersController : Controller
             RightsAttestedAt = order.RightsAttestedAt,
             CancellationReason = order.CancellationReason,
             CreatedAt = order.CreatedAt,
+
+            FulfilmentMethod = order.FulfilmentMethod,
+            ShipToLine1 = order.ShipToLine1,
+            ShipToLine2 = order.ShipToLine2,
+            ShipToCity = order.ShipToCity,
+            ShipToState = order.ShipToState,
+            ShipToPostalCode = order.ShipToPostalCode,
+
+            // As snapshotted onto this order when it was placed, not the fee the
+            // studio charges today.
+            ShippingFee = order.ShippingFee,
             Statuses = OrderStatus.All,
             SuccessMessage = TempData["OrderSuccess"] as string,
             ErrorMessage = TempData["OrderError"] as string,
@@ -325,6 +377,11 @@ public class OrdersController : Controller
             // quoted and the figure snapshotted onto the line can't disagree.
             UnitPrice = Pricing.UnitPrice(product, design, defaultSize),
             ExtendedSizeUpcharge = product.ExtendedSizeUpcharge,
+
+            // From the studio record, never from the form. Whether postage is on
+            // offer and what it adds are the studio to state, not the customer.
+            OffersShipping = _settings.OffersShipping,
+            ShippingFee = _settings.ShippingFee,
             PrintedSides = Pricing.PrintedSides(design),
 
             // Prefilled with a date the studio could actually hit, rather than
@@ -393,6 +450,17 @@ public class OrdersController : Controller
                 Notes = r.Notes,
                 RightsAttested = r.RightsAttested,
                 CreatedAt = r.CreatedAt,
+
+                FulfilmentMethod = r.FulfilmentMethod,
+                ShipToLine1 = r.ShipToLine1,
+                ShipToLine2 = r.ShipToLine2,
+                ShipToCity = r.ShipToCity,
+                ShipToState = r.ShipToState,
+                ShipToPostalCode = r.ShipToPostalCode,
+
+                // What postage would come to if this were accepted now. Nothing is
+                // snapshotted until the order exists.
+                ShippingFeeIfAccepted = _settings.ShippingFee,
 
                 // Whichever is later: what the customer asked for, or the
                 // soonest the studio could actually manage.

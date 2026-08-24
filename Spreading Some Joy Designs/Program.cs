@@ -2,6 +2,7 @@ using System.Net;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +17,39 @@ using SpreadingJoy.Security;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllersWithViews();
+
+// Data protection keys, persisted to disk.
+//
+// These keys encrypt the auth cookie, the session cookie, and every antiforgery
+// token. Left unconfigured, ASP.NET Core keeps the keyring in the user profile —
+// and under IIS shared hosting there frequently isn't one, so the ring is
+// regenerated from scratch every time the app pool recycles.
+//
+// That failure does not announce itself at startup. It shows up later as staff
+// being signed out at random and forms rejecting with "the antiforgery token
+// could not be decrypted", which reads as the site being flaky rather than as a
+// missing configuration line.
+//
+// SetApplicationName is the half people leave out. The application name is part
+// of the key discriminator, so without it a redeploy to a different physical
+// path ignores the keys sitting right there in the folder.
+//
+// Under App_Data for the same reason the artwork is: ContentRoot is not served,
+// wwwroot is. Anyone who can read this folder can mint a staff auth cookie.
+var keyPath = builder.Configuration["DataProtection:KeyPath"] ?? "App_Data/keys";
+
+var keyDirectory = new DirectoryInfo(Path.IsPathRooted(keyPath)
+    ? keyPath
+    : Path.Combine(builder.Environment.ContentRootPath, keyPath));
+
+// Created here rather than lazily on first write, so a hosting account without
+// write permission fails at startup where it is obvious, instead of at the first
+// sign-in attempt where it looks like a broken password.
+keyDirectory.Create();
+
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(keyDirectory)
+    .SetApplicationName("SpreadingSomeJoyDesigns");
 
 // The designer is anonymous, so an in-progress design has nowhere to live but
 // the session. Deliberately short-lived and not persisted: a visitor who
@@ -34,10 +68,38 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
 });
 
-// EF Core DbContext, pointed at the SpreadingJoy database using the connection
-// string named "SpreadingJoyContext" in appsettings.json.
+// EF Core DbContext.
+//
+// The connection string is deliberately absent from appsettings.json. That file
+// is in source control, and a hosted database is reached with a SQL username and
+// password rather than Windows auth — so the real one is a credential, and
+// committing it publishes it to anyone who ever gets a copy of the repository.
+//
+// Local development reads it from appsettings.Development.json. The deployed
+// site supplies it as an environment variable:
+//
+//     ConnectionStrings__SpreadingJoyContext
+//
+// Two underscores, not one — that is how ASP.NET maps a flat environment
+// variable onto nested configuration. Most Windows hosts expose this in the
+// control panel; failing that it goes in web.config under
+// <aspNetCore><environmentVariables>.
+//
+// Checked here rather than left to EF, because a missing connection string
+// otherwise surfaces as an exception page the first time somebody opens the
+// shop — later than startup, and far less obvious about what's wrong.
+var connectionString = builder.Configuration.GetConnectionString("SpreadingJoyContext");
+
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException(
+        "No connection string named 'SpreadingJoyContext' was found. On the server, set the " +
+        "environment variable ConnectionStrings__SpreadingJoyContext. When running locally, " +
+        "add it to appsettings.Development.json.");
+}
+
 builder.Services.AddDbContext<SpreadingJoyContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("SpreadingJoyContext")));
+    options.UseSqlServer(connectionString));
 
 // Cookie auth for staff sign-in. No ASP.NET Core Identity — just the built-in
 // cookie handler plus our own Users table and PasswordHasher.

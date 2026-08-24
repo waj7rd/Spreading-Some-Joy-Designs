@@ -14,6 +14,14 @@ public interface IStudioSettings
 
     // Days the studio doesn't print at all.
     IReadOnlyCollection<DayOfWeek> ClosedDays { get; }
+
+    // Whether the studio will post an order out. Read on the storefront to decide
+    // whether to offer the choice at all, and again in the logic layer, so a
+    // hand-built POST cannot order shipping from a studio that does not do it.
+    bool OffersShipping { get; }
+
+    // The flat charge for posting one order out.
+    decimal ShippingFee { get; }
 }
 
 public class StudioSettings : IStudioSettings
@@ -21,16 +29,22 @@ public class StudioSettings : IStudioSettings
     public StudioSettings(
         int dailyPrintCapacity,
         int turnaroundDays = 3,
-        IReadOnlyCollection<DayOfWeek>? closedDays = null)
+        IReadOnlyCollection<DayOfWeek>? closedDays = null,
+        bool offersShipping = false,
+        decimal shippingFee = 0m)
     {
         DailyPrintCapacity = dailyPrintCapacity;
         TurnaroundDays = turnaroundDays;
         ClosedDays = closedDays ?? new[] { DayOfWeek.Saturday, DayOfWeek.Sunday };
+        OffersShipping = offersShipping;
+        ShippingFee = shippingFee;
     }
 
     public int DailyPrintCapacity { get; }
     public int TurnaroundDays { get; }
     public IReadOnlyCollection<DayOfWeek> ClosedDays { get; }
+    public bool OffersShipping { get; }
+    public decimal ShippingFee { get; }
 }
 
 // Which days the studio can actually promise work for.

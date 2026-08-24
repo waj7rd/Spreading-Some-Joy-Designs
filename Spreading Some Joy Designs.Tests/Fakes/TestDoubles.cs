@@ -52,6 +52,24 @@ public class FakeImageInspector : IImageInspector
     }
 }
 
+// Stand-in for the cached studio record.
+//
+// Counts reloads on purpose: forgetting to call Reload after a save is the bug
+// that makes the settings screen report a change nothing else in the
+// application can see, and it is invisible without something counting.
+public class FakeStudioContext : IStudioContext
+{
+    private readonly Studio _studio;
+
+    public FakeStudioContext(Studio studio) => _studio = studio;
+
+    public int ReloadCount { get; private set; }
+
+    public Studio Current => _studio;
+
+    public void Reload() => ReloadCount++;
+}
+
 // Stand-in for the file store. Keeps bytes in a dictionary.
 public class FakeImageStore : IImageStore
 {

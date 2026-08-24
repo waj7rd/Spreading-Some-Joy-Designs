@@ -14,6 +14,7 @@ public class OrderRequestLogic : IOrderRequestLogic
     private readonly IProductRepository _productRepository;
     private readonly IDesignLogic _designLogic;
     private readonly IOrderLogic _orderLogic;
+    private readonly IStudioSettings _settings;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IStudioClock _clock;
 
@@ -24,6 +25,7 @@ public class OrderRequestLogic : IOrderRequestLogic
         IProductRepository productRepository,
         IDesignLogic designLogic,
         IOrderLogic orderLogic,
+        IStudioSettings settings,
         IUnitOfWork unitOfWork,
         IStudioClock clock)
     {
@@ -33,6 +35,7 @@ public class OrderRequestLogic : IOrderRequestLogic
         _productRepository = productRepository;
         _designLogic = designLogic;
         _orderLogic = orderLogic;
+        _settings = settings;
         _unitOfWork = unitOfWork;
         _clock = clock;
     }
@@ -64,6 +67,18 @@ public class OrderRequestLogic : IOrderRequestLogic
         if (!product.Sizes.Contains(sizeCode))
             return OrderRequestResult.Fail($"The {product.Colour} {product.Name} doesn't come in {sizeCode}.");
 
+        // The studio switch is re-read here rather than trusted from the form. The
+        // ship-or-collect choice is only rendered when shipping is on, but a form
+        // is a suggestion and this is the rule.
+        var method = FulfilmentMethod.Normalise(request.FulfilmentMethod);
+        var requested = request.ShipTo ?? ShippingAddress.None;
+
+        var fulfilmentError = Fulfilment.Check(method, requested, _settings.OffersShipping);
+        if (fulfilmentError != null)
+            return OrderRequestResult.Fail(fulfilmentError);
+
+        var shipTo = Fulfilment.ToStore(method, requested);
+
         // Deliberately not checked here: the due date and the day's capacity.
         // A date the studio can't hit is something to ring the customer about,
         // not a red validation message on a public form — and holding capacity
@@ -78,6 +93,12 @@ public class OrderRequestLogic : IOrderRequestLogic
             Quantity = request.Quantity,
             RequestedFor = request.RequestedFor.Date,
             Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim(),
+            FulfilmentMethod = method,
+            ShipToLine1 = shipTo.Line1,
+            ShipToLine2 = shipTo.Line2,
+            ShipToCity = shipTo.City,
+            ShipToState = shipTo.State,
+            ShipToPostalCode = shipTo.PostalCode,
             RightsAttested = true,
             Status = OrderRequestStatus.Pending,
             CreatedAt = _clock.UtcNow
@@ -134,7 +155,17 @@ public class OrderRequestLogic : IOrderRequestLogic
                 // Carried across from what the customer actually agreed to on
                 // the public form. Not re-asserted by staff on their behalf.
                 RightsAttested: request.RightsAttested,
-                Notes: request.Notes));
+                Notes: request.Notes,
+
+                // Carried across exactly as stored. Accepting a request is agreeing to
+                // what the customer asked for, including how they asked to get it.
+                FulfilmentMethod: request.FulfilmentMethod,
+                ShipTo: new ShippingAddress(
+                    request.ShipToLine1,
+                    request.ShipToLine2,
+                    request.ShipToCity,
+                    request.ShipToState,
+                    request.ShipToPostalCode)));
 
             if (!placed.Success)
                 return OrderRequestResult.Fail(placed.ErrorMessage!);

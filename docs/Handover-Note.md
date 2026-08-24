@@ -102,3 +102,7 @@ Don't put these in the same message you might forward around.
   the production board but can't approve artwork
 - **The database:** it needs the SQL scripts in `Spreading Some Joy Designs.DAL/Scripts/`,
   which aren't in the GitHub repo. Copy in OneDrive under `Dev Backups`
+    - Run order: `CreateDatabase.sql`, `SeedData.sql`, then `AddShipping.sql`
+    - `AddShipping.sql` adds the shipping columns and is safe to run more than
+      once. Like the others it is **gitignored** — if it isn't in `Dev Backups`,
+      it exists on one machine only

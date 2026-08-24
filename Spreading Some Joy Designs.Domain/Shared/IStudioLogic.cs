@@ -22,7 +22,9 @@ public interface IStudioLogic
         string timeZoneId,
         int dailyPrintCapacity,
         int turnaroundDays,
-        IReadOnlyCollection<DayOfWeek> closedDays);
+        IReadOnlyCollection<DayOfWeek> closedDays,
+        bool offersShipping,
+        decimal shippingFee);
 }
 
 public class StudioResult : IOperationResult

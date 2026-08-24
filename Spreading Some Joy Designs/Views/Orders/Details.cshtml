@@ -45,6 +45,20 @@
                     }
                 </tbody>
                 <tfoot>
+                    @* Split out only when there's postage to split out. A
+                       collection order showing a zero postage line would be
+                       noise on every order the studio has ever taken. *@
+                    @if (Model.IsShipping)
+                    {
+                        <tr class="sj-muted">
+                            <td colspan="5">Garments</td>
+                            <td class="text-end">@Model.Subtotal.ToString("C")</td>
+                        </tr>
+                        <tr class="sj-muted">
+                            <td colspan="5">Postage</td>
+                            <td class="text-end">@Model.ShippingFee.ToString("C")</td>
+                        </tr>
+                    }
                     <tr class="fw-bold">
                         <td colspan="3">Total</td>
                         <td class="text-end">@Model.GarmentCount</td>
@@ -82,6 +96,31 @@
             @if (!string.IsNullOrWhiteSpace(Model.CustomerEmail))
             {
                 <div class="sj-muted">@Model.CustomerEmail</div>
+            }
+        </div>
+
+        <div class="sj-card p-3 mb-3">
+            <div class="fw-bold mb-2">@(Model.IsShipping ? "Posting to" : "Collection")</div>
+            @if (Model.IsShipping)
+            {
+                @foreach (var line in Model.ShipToLines)
+                {
+                    <div>@line</div>
+                }
+
+                @* Shouldn't be reachable — an order can't be placed as shipping
+                   without one — but a blank card here would read as "no address
+                   needed" rather than as something being wrong. *@
+                @if (Model.ShipToLines.Count == 0)
+                {
+                    <div class="text-danger">No address on this order — don't post it.</div>
+                }
+
+                <div class="sj-muted mt-2">Postage charged: @Model.ShippingFee.ToString("C")</div>
+            }
+            else
+            {
+                <div class="sj-muted">Being collected from the studio.</div>
             }
         </div>
 

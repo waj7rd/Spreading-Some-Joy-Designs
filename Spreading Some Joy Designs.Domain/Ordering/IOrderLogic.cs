@@ -33,7 +33,13 @@ public record PlaceOrderRequest(
     DateTime DueOn,
     IReadOnlyCollection<OrderLineRequest> Lines,
     bool RightsAttested,
-    string? Notes);
+    string? Notes,
+
+    // Defaulted to collection, same as SubmitOrderRequest: an order placed by a
+    // path that has never heard of shipping is a pickup order, not an
+    // under-specified one.
+    string FulfilmentMethod = EntityModels.FulfilmentMethod.Pickup,
+    ShippingAddress? ShipTo = null);
 
 public record DayCapacity(DateTime Date, int Promised, int Total)
 {

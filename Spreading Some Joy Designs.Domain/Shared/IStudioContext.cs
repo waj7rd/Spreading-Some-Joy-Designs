@@ -33,6 +33,8 @@ public class StudioSettingsFromContext : IStudioSettings
     public int DailyPrintCapacity => _context.Current.DailyPrintCapacity;
     public int TurnaroundDays => _context.Current.TurnaroundDays;
     public IReadOnlyCollection<DayOfWeek> ClosedDays => _context.Current.ClosedDays;
+    public bool OffersShipping => _context.Current.OffersShipping;
+    public decimal ShippingFee => _context.Current.ShippingFee;
 }
 
 public class FeatureFlagsFromContext : IFeatureFlags

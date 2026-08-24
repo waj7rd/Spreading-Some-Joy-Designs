@@ -253,6 +253,10 @@ main {
 .sj-pill-approved { background: #e6f4ea; color: #1a6b35; }
 .sj-pill-rejected { background: #fae7e4; color: #a4291a; }
 
+/* Fulfilment. Deliberately not one of the greens or ambers above: this isn't a
+   stage the job passes through, it's a standing fact about where it ends up. */
+.sj-pill-shipping { background: #ede7fb; color: #4a2fa8; }
+
 /* ---------------------------------------------------------------------------
    The designer.
 

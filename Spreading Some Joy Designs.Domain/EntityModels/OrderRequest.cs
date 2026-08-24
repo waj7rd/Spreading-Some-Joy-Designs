@@ -31,6 +31,23 @@ public partial class OrderRequest
 
     public string? Notes { get; set; }
 
+    // How the customer wants it: collected from the studio, or posted out.
+    // Held on the request as well as on the order it becomes, because staff are
+    // deciding whether to accept a shipped job before any order exists.
+    public string FulfilmentMethod { get; set; } = EntityModels.FulfilmentMethod.Pickup;
+
+    // Only populated for a shipping request. A collection request keeps no
+    // address at all rather than a half-filled one — see Fulfilment.ToStore.
+    public string? ShipToLine1 { get; set; }
+
+    public string? ShipToLine2 { get; set; }
+
+    public string? ShipToCity { get; set; }
+
+    public string? ShipToState { get; set; }
+
+    public string? ShipToPostalCode { get; set; }
+
     public bool RightsAttested { get; set; }
 
     public string Status { get; set; } = OrderRequestStatus.Pending;

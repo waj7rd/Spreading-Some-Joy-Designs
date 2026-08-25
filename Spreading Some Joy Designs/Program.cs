@@ -216,6 +216,9 @@ builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IOrderRequestRepository, OrderRequestRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ILoginAuditRepository, LoginAuditRepository>();
+builder.Services.AddScoped<IGangSheetRepository, GangSheetRepository>();
+builder.Services.AddScoped<IGangSheetSizeRepository, GangSheetSizeRepository>();
+builder.Services.AddScoped<IGangSheetRequestRepository, GangSheetRequestRepository>();
 
 // One transaction per business operation. See IUnitOfWork.
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -278,6 +281,9 @@ builder.Services.AddScoped<IDesignLogic, DesignLogic>();
 builder.Services.AddScoped<IOrderLogic, OrderLogic>();
 builder.Services.AddScoped<IOrderRequestLogic, OrderRequestLogic>();
 builder.Services.AddScoped<IUserLogic, UserLogic>();
+builder.Services.AddScoped<IGangSheetLogic, GangSheetLogic>();
+builder.Services.AddScoped<IGangSheetSizeLogic, GangSheetSizeLogic>();
+builder.Services.AddScoped<IGangSheetRequestLogic, GangSheetRequestLogic>();
 
 // Trusting X-Forwarded-* is opt-in, and off by default.
 //

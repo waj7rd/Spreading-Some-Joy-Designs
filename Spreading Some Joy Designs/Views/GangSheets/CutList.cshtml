@@ -1,0 +1,82 @@
+@model GangSheetBuildViewModel
+@using SpreadingJoy.Domain.Production
+@{
+    ViewData["Title"] = $"Cut list · {Model.Sheet.Name}";
+}
+
+@* What gets read at the bench while the sheet is being cut apart, so it is
+   deliberately plain: this ends up on paper next to a heat press, and the
+   positions are what tells somebody which transfer is which once forty of them
+   are lying on a table. *@
+
+<div class="d-flex flex-wrap justify-content-between align-items-start mb-3 gap-2">
+    <div>
+        <h1 class="sj-section-title mb-1">@Model.Sheet.Name</h1>
+        <div class="sj-muted small">
+            @Model.Sheet.FilmSize · @Model.Sheet.PlacedCount transfers ·
+            @Model.Sheet.UsedLengthMm mm used (@FilmSizes.MmToInches(Model.Sheet.UsedLengthMm).ToString("0.#") in) ·
+            @Model.Sheet.CoveragePercent.ToString("0.#")% covered
+        </div>
+    </div>
+    <a asp-action="Build" asp-route-id="@Model.Sheet.Id" class="btn btn-sm btn-outline-secondary d-print-none">Back to the sheet</a>
+</div>
+
+@if (Model.Placed.Count == 0)
+{
+    <div class="sj-card p-4 text-center sj-muted">Nothing is placed on this sheet.</div>
+}
+else
+{
+    <table class="table table-sm align-middle">
+        <thead>
+            <tr>
+                <th style="width:3rem;">#</th>
+                <th>Transfer</th>
+                <th>Side</th>
+                <th class="text-end">Size</th>
+                <th class="text-end">Position on the film</th>
+            </tr>
+        </thead>
+        <tbody>
+            @{ var number = 1; }
+            @foreach (var item in Model.Placed)
+            {
+                <tr>
+                    <td>@number</td>
+                    <td>
+                        @item.Label
+                        @if (item.Rotated)
+                        {
+                            <span class="badge text-bg-info">rotated 90°</span>
+                        }
+                    </td>
+                    <td>@item.Side</td>
+                    <td class="text-end">@item.WidthMm × @item.HeightMm mm</td>
+                    <td class="text-end">@item.XMm, @item.YMm mm from the top-left</td>
+                </tr>
+                number++;
+            }
+        </tbody>
+    </table>
+}
+
+@if (Model.Unplaced.Count > 0)
+{
+    <div class="alert alert-warning">
+        <div class="fw-semibold mb-2">Not on this sheet — @Model.Unplaced.Count didn't fit</div>
+        <ul class="mb-0 small">
+            @foreach (var item in Model.Unplaced)
+            {
+                <li>@item.Label — @item.WidthMm × @item.HeightMm mm</li>
+            }
+        </ul>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.Notes))
+{
+    <div class="mt-3">
+        <div class="fw-semibold">Notes</div>
+        <div class="small">@Model.Notes</div>
+    </div>
+}

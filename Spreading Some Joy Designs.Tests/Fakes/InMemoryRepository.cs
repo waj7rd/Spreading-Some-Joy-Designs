@@ -186,6 +186,81 @@ public class FakeLoginAuditRepository : InMemoryRepository<LoginAudit>, ILoginAu
             .ToList());
 }
 
+public class FakeGangSheetRepository : InMemoryRepository<GangSheet>, IGangSheetRepository
+{
+    public FakeGangSheetRepository() : base((s, id) => s.GangSheetId = id) { }
+
+    // Items live on the sheet they belong to, the same as they do in the
+    // database. These two lists are what the real cascade and the real Include
+    // produce, kept by hand.
+    public List<GangSheetItem> AllItems { get; } = new();
+
+    public List<OrderLine> CandidateLines { get; } = new();
+
+    private int _nextItemId = 1;
+
+    public Task<GangSheet?> GetWithItemsAsync(int gangSheetId) =>
+        Task.FromResult(All.FirstOrDefault(s => s.GangSheetId == gangSheetId));
+
+    public Task<IList<GangSheet>> GetAllWithItemsAsync() =>
+        Task.FromResult<IList<GangSheet>>(All.ToList());
+
+    public Task<IList<OrderLine>> GetCandidateLinesAsync() =>
+        Task.FromResult<IList<OrderLine>>(CandidateLines
+            .Where(l => l.Order != null && OrderStatus.IsOpen(l.Order.Status))
+            .ToList());
+
+    public Task<IDictionary<int, int>> CountPlacementsByOrderLineAsync(IReadOnlyCollection<int> orderLineIds) =>
+        Task.FromResult<IDictionary<int, int>>(AllItems
+            .Where(i => i.OrderLineId != null && orderLineIds.Contains(i.OrderLineId.Value))
+            .GroupBy(i => i.OrderLineId!.Value)
+            .ToDictionary(g => g.Key, g => g.Count()));
+
+    public Task AddItemAsync(GangSheetItem item)
+    {
+        // The database assigns this on insert, and the packer sorts on it — a
+        // fake that left every id at zero would pack in a different order from
+        // the real thing.
+        item.GangSheetItemId = _nextItemId++;
+        AllItems.Add(item);
+        return Task.CompletedTask;
+    }
+
+    public void RemoveItem(GangSheetItem item) => AllItems.Remove(item);
+}
+
+public class FakeGangSheetSizeRepository : InMemoryRepository<GangSheetSize>, IGangSheetSizeRepository
+{
+    public FakeGangSheetSizeRepository() : base((s, id) => s.GangSheetSizeId = id) { }
+
+    public Task<IList<GangSheetSize>> GetActiveAsync() =>
+        Task.FromResult<IList<GangSheetSize>>(Items
+            .Where(s => s.IsActive)
+            .OrderBy(s => s.LengthMm)
+            .ThenBy(s => s.WidthMm)
+            .ToList());
+}
+
+public class FakeGangSheetRequestRepository : InMemoryRepository<GangSheetRequest>, IGangSheetRequestRepository
+{
+    public FakeGangSheetRequestRepository() : base((r, id) => r.GangSheetRequestId = id) { }
+
+    // The real repository Includes the items and their artwork. The fake relies
+    // on the request carrying its own items, which is what the logic layer builds
+    // — same caveat the design fake documents.
+    public Task<IList<GangSheetRequest>> GetByStatusAsync(string status) =>
+        Task.FromResult<IList<GangSheetRequest>>(Items
+            .Where(r => r.Status == status)
+            .OrderBy(r => r.CreatedAt)
+            .ToList());
+
+    public Task<GangSheetRequest?> GetWithItemsAsync(int gangSheetRequestId) =>
+        Task.FromResult(Items.FirstOrDefault(r => r.GangSheetRequestId == gangSheetRequestId));
+
+    public Task<int> CountPendingAsync() =>
+        Task.FromResult(Items.Count(r => r.Status == GangSheetRequestStatus.Pending));
+}
+
 // Runs the operation and reports whether it would have been rolled back, so a
 // test can assert that a refusal doesn't leave a customer behind.
 public class FakeUnitOfWork : IUnitOfWork

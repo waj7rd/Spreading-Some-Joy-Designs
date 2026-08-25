@@ -1,0 +1,161 @@
+@model GangSheetSizeListViewModel
+@using SpreadingJoy.Domain.Production
+@{
+    ViewData["Title"] = "Sheet prices";
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-start mb-1 gap-2">
+    <div>
+        <h1 class="sj-section-title mb-1">Sheet prices</h1>
+        <p class="sj-muted mb-0">
+            What the public builder offers, and what each sheet costs. Changing a price
+            here never restates one somebody has already been quoted.
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-action="Requests" class="btn btn-sm btn-outline-secondary">Sheet requests</a>
+        <a asp-action="Index" class="btn btn-sm btn-outline-secondary">Press sheets</a>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success mt-3">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger mt-3">@Model.ErrorMessage</div>
+}
+
+<div class="row g-4 mt-1">
+    <div class="col-lg-8">
+        @* A card per sheet rather than an editable table row. A form can't wrap
+           a run of <td> elements — the browser hoists it out and the row stops
+           posting — so the row would have had to be stitched together with form
+           attributes. Cards are the same information without the trick. *@
+        @if (Model.Sizes.Count == 0)
+        {
+            <div class="sj-card p-4 text-center sj-muted">
+                Nothing on offer yet — add a sheet on the right.
+            </div>
+        }
+
+        @foreach (var size in Model.Sizes)
+        {
+            <div class="sj-card p-3 mb-3 @(size.IsActive ? "" : "opacity-75")">
+                <div class="d-flex flex-wrap align-items-end gap-2">
+                    <form asp-action="UpdateSize" asp-route-id="@size.GangSheetSizeId" method="post"
+                          class="d-flex flex-wrap align-items-end gap-2 flex-grow-1">
+                        @Html.AntiForgeryToken()
+
+                        <div class="flex-grow-1" style="min-width:10rem;">
+                            <label class="form-label small mb-1">Name</label>
+                            <input type="text" name="Name" value="@size.Name" class="form-control form-control-sm" />
+                        </div>
+
+                        <div style="width:8rem;">
+                            <label class="form-label small mb-1">Width</label>
+                            <div class="input-group input-group-sm">
+                                <input type="number" name="WidthMm" value="@size.WidthMm" class="form-control" min="100" max="1000" />
+                                <span class="input-group-text">mm</span>
+                            </div>
+                        </div>
+
+                        <div style="width:8rem;">
+                            <label class="form-label small mb-1">Length</label>
+                            <div class="input-group input-group-sm">
+                                <input type="number" name="LengthMm" value="@size.LengthMm" class="form-control" min="100" max="6000" />
+                                <span class="input-group-text">mm</span>
+                            </div>
+                        </div>
+
+                        <div style="width:8rem;">
+                            <label class="form-label small mb-1">Price</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text">$</span>
+                                <input type="number" name="Price" value="@size.Price" class="form-control" min="0" max="1000" step="0.01" />
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-sm btn-outline-primary">Save</button>
+                    </form>
+
+                    <form asp-action="SetSizeActive" asp-route-id="@size.GangSheetSizeId" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="isActive" value="@((!size.IsActive).ToString().ToLowerInvariant())" />
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">
+                            @(size.IsActive ? "Withdraw" : "Offer again")
+                        </button>
+                    </form>
+                </div>
+
+                @if (!size.IsActive)
+                {
+                    <span class="badge text-bg-secondary mt-2">Withdrawn — off the public builder</span>
+                }
+            </div>
+        }
+
+        <div class="sj-muted small mt-2">
+            Withdrawing takes a sheet off the public builder. Sheets already sold at it
+            keep resolving to it, which is why it isn't deleted.
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="sj-card p-4">
+            <h2 class="h6 mb-3">Add a sheet</h2>
+
+            <form asp-action="CreateSize" method="post">
+                @Html.AntiForgeryToken()
+
+                <div class="mb-3">
+                    <label asp-for="NewSize.Name" class="form-label"></label>
+                    <input asp-for="NewSize.Name" class="form-control" placeholder="22 × 24 in" />
+                    <span asp-validation-for="NewSize.Name" class="text-danger small"></span>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label asp-for="NewSize.WidthMm" class="form-label"></label>
+                        <div class="input-group">
+                            <input asp-for="NewSize.WidthMm" class="form-control" type="number" min="100" max="1000" />
+                            <span class="input-group-text">mm</span>
+                        </div>
+                        <div class="form-text">
+                            @string.Join(", ", FilmSizes.WidthsInInches.Select(w => $"{w}\" = {FilmSizes.InchesToMm(w)}mm"))
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <label asp-for="NewSize.LengthMm" class="form-label"></label>
+                        <div class="input-group">
+                            <input asp-for="NewSize.LengthMm" class="form-control" type="number" min="100" max="6000" />
+                            <span class="input-group-text">mm</span>
+                        </div>
+                        <div class="form-text">
+                            @string.Join(", ", FilmSizes.LengthsInInches.Select(l => $"{l}\" = {FilmSizes.InchesToMm(l)}mm"))
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="NewSize.Price" class="form-label"></label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input asp-for="NewSize.Price" class="form-control" type="number" min="0" max="1000" step="0.01" />
+                    </div>
+                    <div class="form-text">
+                        What the customer pays for the sheet, whatever they fit on it.
+                    </div>
+                    <span asp-validation-for="NewSize.Price" class="text-danger small"></span>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Add the sheet</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

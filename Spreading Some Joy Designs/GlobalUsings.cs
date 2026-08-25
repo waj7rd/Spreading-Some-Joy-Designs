@@ -8,4 +8,5 @@ global using SpreadingJoy.Domain.Artworks;
 global using SpreadingJoy.Domain.Catalog;
 global using SpreadingJoy.Domain.Identity;
 global using SpreadingJoy.Domain.Ordering;
+global using SpreadingJoy.Domain.Production;
 global using SpreadingJoy.Domain.Shared;

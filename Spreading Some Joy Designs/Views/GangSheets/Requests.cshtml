@@ -1,0 +1,181 @@
+@model GangSheetRequestListViewModel
+@{
+    ViewData["Title"] = "Sheet requests";
+
+    string TabClass(string status) => Model.Status == status ? "nav-link active" : "nav-link";
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-start mb-1 gap-2">
+    <div>
+        <h1 class="sj-section-title mb-1">Sheet requests</h1>
+        <p class="sj-muted mb-0">
+            Gang sheets people built for themselves on the public side. Accepting one
+            creates the customer and packs the sheet.
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-action="Index" class="btn btn-sm btn-outline-secondary">Press sheets</a>
+        <a asp-action="Sizes" class="btn btn-sm btn-outline-secondary">Sheet prices</a>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success mt-3">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger mt-3">@Model.ErrorMessage</div>
+}
+
+<ul class="nav nav-tabs my-4">
+    <li class="nav-item">
+        <a class="@TabClass(GangSheetRequestStatusNames.Pending)" asp-action="Requests"
+           asp-route-status="@GangSheetRequestStatusNames.Pending">
+            Waiting
+            @if (Model.PendingCount > 0)
+            {
+                <span class="badge bg-warning text-dark ms-1">@Model.PendingCount</span>
+            }
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="@TabClass(GangSheetRequestStatusNames.Accepted)" asp-action="Requests"
+           asp-route-status="@GangSheetRequestStatusNames.Accepted">Accepted</a>
+    </li>
+    <li class="nav-item">
+        <a class="@TabClass(GangSheetRequestStatusNames.Declined)" asp-action="Requests"
+           asp-route-status="@GangSheetRequestStatusNames.Declined">Declined</a>
+    </li>
+</ul>
+
+@if (Model.Requests.Count == 0)
+{
+    <div class="sj-card p-4 text-center sj-muted">Nothing here.</div>
+}
+
+@foreach (var request in Model.Requests)
+{
+    <div class="sj-card p-3 mb-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+            <div>
+                <div class="fw-semibold">@request.CustomerName</div>
+                <div class="sj-muted small">
+                    @request.Phone
+                    @if (!string.IsNullOrEmpty(request.Email))
+                    {
+                        <text> · @request.Email</text>
+                    }
+                </div>
+                <div class="sj-muted small">
+                    Asked @request.CreatedAt.ToLocalTime().ToString("d MMM yyyy, HH:mm")
+                </div>
+            </div>
+            <div class="text-end">
+                <div class="fw-semibold">@request.SizeName</div>
+                <div>@request.PriceQuoted.ToString("C")</div>
+                <div class="sj-muted small">@request.TransferCount transfers</div>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(request.Notes))
+        {
+            <div class="small mb-3"><span class="sj-muted">They said:</span> @request.Notes</div>
+        }
+
+        <div class="table-responsive mb-3">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th style="width:4rem;"></th>
+                        <th>Image</th>
+                        <th class="text-end">Size</th>
+                        <th class="text-end">Copies</th>
+                        <th>Artwork</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in request.Items)
+                    {
+                        <tr>
+                            <td><img src="@item.ImageUrl" alt="@item.Label" class="sj-transfer-thumb" /></td>
+                            <td class="small">@item.Label</td>
+                            <td class="text-end small">
+                                @item.SizeLabel
+                                <div class="@(item.IsLowResolution ? "text-danger" : "sj-muted")">@item.Dpi DPI</div>
+                            </td>
+                            <td class="text-end small">@item.Quantity</td>
+                            <td>
+                                @if (item.IsApproved)
+                                {
+                                    <span class="badge text-bg-success">Approved</span>
+                                }
+                                else
+                                {
+                                    <span class="badge text-bg-warning">@item.ArtworkStatus</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (request.Status == GangSheetRequestStatusNames.Pending)
+        {
+            @if (!request.ReadyToAccept)
+            {
+                @* Nothing reaches film without a person having looked at it. The
+                   refusal comes from GangSheetLogic.AddItemsAsync either way —
+                   this only saves staff clicking at an answer they can see. *@
+                <div class="alert alert-warning py-2 small">
+                    @request.AwaitingReviewCount image(s) on this sheet still need approving.
+                    <a asp-controller="Artwork" asp-action="Queue">Open the artwork queue</a>.
+                </div>
+            }
+
+            <div class="d-flex flex-wrap gap-3 align-items-start">
+                <form asp-action="AcceptRequest" asp-route-id="@request.Id" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="returnStatus" value="@Model.Status" />
+                    <button type="submit" class="btn btn-primary btn-sm" disabled="@(!request.ReadyToAccept)">
+                        Accept and pack it
+                    </button>
+                </form>
+
+                <form asp-action="DeclineRequest" asp-route-id="@request.Id" method="post" class="d-flex gap-2 flex-grow-1">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="returnStatus" value="@Model.Status" />
+                    <input type="text" name="reason" class="form-control form-control-sm"
+                           placeholder="Why it's being declined — the customer sees this" />
+                    <button type="submit" class="btn btn-outline-danger btn-sm">Decline</button>
+                </form>
+            </div>
+        }
+        else
+        {
+            <div class="sj-muted small">
+                @request.Status
+                @if (request.HandledAt != null)
+                {
+                    <text> @request.HandledAt.Value.ToLocalTime().ToString("d MMM yyyy, HH:mm")</text>
+                }
+                @if (request.HandledBy != null)
+                {
+                    <text> by @request.HandledBy</text>
+                }
+                @if (!string.IsNullOrEmpty(request.DeclineReason))
+                {
+                    <div class="text-danger">Reason given: @request.DeclineReason</div>
+                }
+            </div>
+
+            @if (request.GangSheetId != null)
+            {
+                <a asp-action="Build" asp-route-id="@request.GangSheetId" class="btn btn-sm btn-outline-secondary mt-2">
+                    Open the sheet
+                </a>
+            }
+        }
+    </div>
+}

@@ -393,5 +393,248 @@ public partial class SpreadingJoyContext
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("FK_LoginAudit_Users");
         });
+
+        modelBuilder.Entity<GangSheet>(entity =>
+        {
+            entity.ToTable("GangSheets");
+            entity.HasKey(e => e.GangSheetId).HasName("PK_GangSheets");
+
+            // The list screen opens on drafts and sheets waiting at the press.
+            entity.HasIndex(e => new { e.Status, e.CreatedAt }, "IX_GangSheets_Status_CreatedAt");
+
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Notes).HasMaxLength(500);
+
+            entity.Property(e => e.Status)
+                .IsRequired()
+                .HasMaxLength(20)
+                .HasDefaultValue(GangSheetStatus.Draft)
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_GangSheets_Status");
+
+            entity.Property(e => e.GutterMm)
+                .HasDefaultValue(Domain.Production.FilmSizes.DefaultGutterMm)
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_GangSheets_GutterMm");
+
+            entity.Property(e => e.MarginMm)
+                .HasDefaultValue(Domain.Production.FilmSizes.DefaultMarginMm)
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_GangSheets_MarginMm");
+
+            entity.Property(e => e.AllowRotation)
+                .HasDefaultValue(true)
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_GangSheets_AllowRotation");
+
+            entity.Property(e => e.UsedLengthMm)
+                .HasDefaultValue(0)
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_GangSheets_UsedLengthMm");
+
+            // 'Studio' or 'Customer'. See Domain/EntityModels/GangSheet.cs.
+            entity.Property(e => e.Origin)
+                .IsRequired()
+                .HasMaxLength(20)
+                .HasDefaultValue(GangSheetOrigin.Studio)
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_GangSheets_Origin");
+
+            // Snapshotted from what the customer was quoted, never read live off
+            // the catalogue. decimal, never float: money that cannot represent
+            // 0.10 exactly has no business in a column somebody is invoiced from.
+            entity.Property(e => e.Price)
+                .HasColumnType("decimal(10, 2)")
+                .HasDefaultValue(0m)
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_GangSheets_Price");
+
+            // Restrict on both: a customer with film on order isn't deleted out
+            // from under it, and a withdrawn sheet size still has to resolve for
+            // the sheets already sold at it.
+            entity.HasOne(d => d.Customer).WithMany()
+                .HasForeignKey(d => d.CustomerId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_GangSheets_Customers");
+
+            entity.HasOne(d => d.GangSheetSize).WithMany()
+                .HasForeignKey(d => d.GangSheetSizeId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_GangSheets_GangSheetSizes");
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_GangSheets_CreatedAt");
+
+            // SetNull for the same reason LoginAudit uses it: removing a staff
+            // account must not delete the record of film that was printed.
+            entity.HasOne(d => d.CreatedByUser).WithMany()
+                .HasForeignKey(d => d.CreatedByUserId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_GangSheets_Users");
+
+            // Counted in C# from the items — not columns.
+            entity.Ignore(e => e.IsEditable);
+            entity.Ignore(e => e.PlacedCount);
+            entity.Ignore(e => e.UnplacedCount);
+            entity.Ignore(e => e.CoveragePercent);
+        });
+
+        modelBuilder.Entity<GangSheetItem>(entity =>
+        {
+            entity.ToTable("GangSheetItems");
+            entity.HasKey(e => e.GangSheetItemId).HasName("PK_GangSheetItems");
+
+            // "How many of this order line are already on a sheet" runs on every
+            // visit to the build screen.
+            entity.HasIndex(e => e.OrderLineId, "IX_GangSheetItems_OrderLineId");
+
+            entity.Property(e => e.Label).IsRequired().HasMaxLength(120);
+
+            entity.Property(e => e.Side)
+                .IsRequired()
+                .HasMaxLength(10)
+                .HasDefaultValue(GangSheetSide.Front)
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_GangSheetItems_Side");
+
+            entity.Property(e => e.XMm)
+                .HasDefaultValue(0)
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_GangSheetItems_XMm");
+
+            entity.Property(e => e.YMm)
+                .HasDefaultValue(0)
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_GangSheetItems_YMm");
+
+            entity.Property(e => e.Rotated)
+                .HasDefaultValue(false)
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_GangSheetItems_Rotated");
+
+            entity.Property(e => e.IsPlaced)
+                .HasDefaultValue(false)
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_GangSheetItems_IsPlaced");
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_GangSheetItems_CreatedAt");
+
+            // Cascade, like OrderLines: a transfer has no meaning apart from the
+            // sheet it sits on. Deleting a draft takes its contents with it.
+            entity.HasOne(d => d.GangSheet).WithMany(s => s.Items)
+                .HasForeignKey(d => d.GangSheetId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_GangSheetItems_GangSheets");
+
+            // Restrict: artwork that has been printed cannot be deleted out from
+            // under the record of having printed it.
+            entity.HasOne(d => d.Artwork).WithMany()
+                .HasForeignKey(d => d.ArtworkId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_GangSheetItems_Artworks");
+
+            // SetNull on both: a sheet outlives the order that prompted it, and
+            // a transfer added by hand never had one. Losing the link is not
+            // losing the transfer — Label carries what the press needs to read.
+            entity.HasOne(d => d.OrderLine).WithMany()
+                .HasForeignKey(d => d.OrderLineId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_GangSheetItems_OrderLines");
+
+            entity.HasOne(d => d.Design).WithMany()
+                .HasForeignKey(d => d.DesignId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_GangSheetItems_Designs");
+
+            // The footprint on the film, which is the stored size with the
+            // rotation applied. Computed in C#.
+            entity.Ignore(e => e.PlacedWidthMm);
+            entity.Ignore(e => e.PlacedHeightMm);
+        });
+
+        modelBuilder.Entity<GangSheetSize>(entity =>
+        {
+            entity.ToTable("GangSheetSizes");
+            entity.HasKey(e => e.GangSheetSizeId).HasName("PK_GangSheetSizes");
+
+            entity.HasIndex(e => e.Name, "UQ_GangSheetSizes_Name").IsUnique();
+
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(60);
+            entity.Property(e => e.Price).HasColumnType("decimal(10, 2)");
+
+            entity.Property(e => e.IsActive)
+                .HasDefaultValue(true)
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_GangSheetSizes_IsActive");
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_GangSheetSizes_CreatedAt");
+
+            entity.Ignore(e => e.Dimensions);
+        });
+
+        modelBuilder.Entity<GangSheetRequest>(entity =>
+        {
+            entity.ToTable("GangSheetRequests");
+            entity.HasKey(e => e.GangSheetRequestId).HasName("PK_GangSheetRequests");
+
+            // The queue reads exactly this way: pending, oldest first.
+            entity.HasIndex(e => new { e.Status, e.CreatedAt }, "IX_GangSheetRequests_Status_CreatedAt");
+
+            entity.Property(e => e.CustomerName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Email).HasMaxLength(255);
+            entity.Property(e => e.Phone).IsRequired().HasMaxLength(30);
+            entity.Property(e => e.Notes).HasMaxLength(500);
+            entity.Property(e => e.DeclineReason).HasMaxLength(500);
+
+            entity.Property(e => e.PriceQuoted).HasColumnType("decimal(10, 2)");
+
+            entity.Property(e => e.RightsAttested)
+                .HasDefaultValue(false)
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_GangSheetRequests_RightsAttested");
+
+            entity.Property(e => e.Status)
+                .IsRequired()
+                .HasMaxLength(20)
+                .HasDefaultValue(GangSheetRequestStatus.Pending)
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_GangSheetRequests_Status");
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_GangSheetRequests_CreatedAt");
+
+            entity.HasOne(d => d.GangSheetSize).WithMany()
+                .HasForeignKey(d => d.GangSheetSizeId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_GangSheetRequests_GangSheetSizes");
+
+            entity.HasOne(d => d.HandledByUser).WithMany()
+                .HasForeignKey(d => d.HandledByUserId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_GangSheetRequests_Users");
+
+            // Set on acceptance, so the request keeps pointing at what it became.
+            entity.HasOne(d => d.GangSheet).WithMany()
+                .HasForeignKey(d => d.GangSheetId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_GangSheetRequests_GangSheets");
+
+            entity.Ignore(e => e.TransferCount);
+        });
+
+        modelBuilder.Entity<GangSheetRequestItem>(entity =>
+        {
+            entity.ToTable("GangSheetRequestItems");
+            entity.HasKey(e => e.GangSheetRequestItemId).HasName("PK_GangSheetRequestItems");
+
+            entity.Property(e => e.Label).IsRequired().HasMaxLength(120);
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_GangSheetRequestItems_CreatedAt");
+
+            // Cascade, like OrderLines and GangSheetItems: an item on a request
+            // has no meaning apart from the request it is part of.
+            entity.HasOne(d => d.GangSheetRequest).WithMany(r => r.Items)
+                .HasForeignKey(d => d.GangSheetRequestId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_GangSheetRequestItems_GangSheetRequests");
+
+            entity.HasOne(d => d.Artwork).WithMany()
+                .HasForeignKey(d => d.ArtworkId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_GangSheetRequestItems_Artworks");
+        });
     }
 }

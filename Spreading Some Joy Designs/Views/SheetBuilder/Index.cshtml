@@ -1,0 +1,343 @@
+@model SheetBuilderViewModel
+@using SpreadingJoy.Domain.Production
+@{
+    ViewData["Title"] = "Build a gang sheet";
+    ViewData["MetaDescription"] = "Build your own DTF gang sheet — put as many of your own designs as you like on one sheet of transfer film, at the sizes you need. Upload artwork or paste a link.";
+
+    var culture = System.Globalization.CultureInfo.InvariantCulture;
+
+    var aspect = Model.Preview == null || Model.Preview.WidthMm <= 0
+        ? 100
+        : Math.Round(Model.Preview.LengthMm / (double)Model.Preview.WidthMm * 100, 3);
+
+    var chosen = Model.Sizes.FirstOrDefault(s => s.Id == Model.GangSheetSizeId);
+}
+
+<h1 class="sj-section-title mb-1">Build a gang sheet</h1>
+<p class="sj-muted mb-4">
+    One sheet of transfer film, as many of your designs on it as will fit. Add your
+    images, set how big each one prints and how many you need, and we'll pack them
+    on for you — you cut them apart and press them yourself.
+</p>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.PendingNotice))
+{
+    <div class="alert alert-info">@Model.PendingNotice</div>
+}
+
+<div class="row g-4">
+    @* ------------------------------------------------------------------ *@
+    @* The film, as it currently packs.                                    *@
+    @* ------------------------------------------------------------------ *@
+    <div class="col-lg-4">
+        <div class="sj-card p-3">
+            <div class="fw-semibold mb-2">Your sheet</div>
+
+            @if (Model.Preview == null)
+            {
+                <div class="sj-film mb-3" style="padding-top:@(aspect.ToString(culture))%;"></div>
+                <div class="sj-muted small">Add an image to see it laid out.</div>
+            }
+            else
+            {
+                <div class="sj-film mb-3" style="padding-top:@(aspect.ToString(culture))%;">
+                    @foreach (var item in Model.Preview.Placed)
+                    {
+                        <div class="sj-film-item" title="@item.Label@(item.Rotated ? " (turned to fit)" : "")"
+                             style="left:@(item.LeftPercent.ToString(culture))%;
+                                    top:@(item.TopPercent.ToString(culture))%;
+                                    width:@(item.WidthPercent.ToString(culture))%;
+                                    height:@(item.HeightPercent.ToString(culture))%;">
+                            @if (!string.IsNullOrEmpty(item.ImageUrl))
+                            {
+                                <img src="@item.ImageUrl" alt="@item.Label" />
+                            }
+                        </div>
+                    }
+
+                    @if (Model.Preview.UsedPercent > 0 && Model.Preview.UsedPercent < 99.5)
+                    {
+                        <div class="sj-film-cut" style="top:@(Model.Preview.UsedPercent.ToString(culture))%;"></div>
+                    }
+                </div>
+
+                <dl class="row mb-0 small">
+                    <dt class="col-7 fw-normal sj-muted">Sheet</dt>
+                    <dd class="col-5 text-end mb-1">@chosen?.Name</dd>
+
+                    <dt class="col-7 fw-normal sj-muted">Film used</dt>
+                    <dd class="col-5 text-end mb-1">@Model.Preview.UsedLengthMm mm</dd>
+
+                    <dt class="col-7 fw-normal sj-muted">Space filled</dt>
+                    <dd class="col-5 text-end mb-1">@Model.Preview.CoveragePercent.ToString("0.#")%</dd>
+
+                    <dt class="col-7 fw-semibold">Price</dt>
+                    <dd class="col-5 text-end mb-0 fw-semibold">@Model.Preview.Price.ToString("C")</dd>
+                </dl>
+
+                @* The price is for the sheet, not for what's on it. Said plainly,
+                   because "I only used half of it" is the obvious next thought. *@
+                <div class="sj-muted small mt-2">
+                    You pay for the sheet, whatever you fit on it. Filling the space
+                    is the point.
+                </div>
+            }
+        </div>
+
+        @if (Model.Preview is { Fits: false })
+        {
+            <div class="alert alert-warning mt-3 mb-0">
+                <div class="fw-semibold mb-2">Not everything fits</div>
+
+                @if (Model.Preview.TooBig.Count > 0)
+                {
+                    <div class="small mb-2">
+                        Too wide for this film: @string.Join(", ", Model.Preview.TooBig).
+                        Make them narrower or pick a wider sheet.
+                    </div>
+                }
+                @if (Model.Preview.NoRoom.Count > 0)
+                {
+                    <div class="small mb-2">
+                        No room left for: @string.Join(", ", Model.Preview.NoRoom).
+                        Try a longer sheet, fewer copies, or smaller sizes.
+                    </div>
+                }
+
+                <div class="small mb-0">You can't send the order until everything fits.</div>
+            </div>
+        }
+
+        @* ---------------------------------------------------------------- *@
+        @* Which sheet they're buying.                                      *@
+        @* ---------------------------------------------------------------- *@
+        <div class="sj-card p-3 mt-3">
+            <div class="fw-semibold mb-2">Sheet size</div>
+
+            <form asp-action="ChooseSize" method="post">
+                @Html.AntiForgeryToken()
+
+                @foreach (var size in Model.Sizes)
+                {
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="gangSheetSizeId"
+                               id="size-@size.Id" value="@size.Id"
+                               checked="@(size.Id == Model.GangSheetSizeId)" />
+                        <label class="form-check-label" for="size-@size.Id">
+                            @size.Name — <span class="fw-semibold">@size.Price.ToString("C")</span>
+                            <span class="sj-muted d-block small">@size.Dimensions</span>
+                        </label>
+                    </div>
+                }
+
+                <button type="submit" class="btn btn-outline-secondary btn-sm mt-1">Use this size</button>
+                <div class="sj-muted small mt-2">
+                    Changing size keeps your images — everything just gets packed again.
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @* ------------------------------------------------------------------ *@
+    @* Adding and sizing the images.                                       *@
+    @* ------------------------------------------------------------------ *@
+    <div class="col-lg-8">
+        <div class="sj-card p-3 mb-3">
+            <h2 class="h6 mb-3">Add an image</h2>
+
+            <div class="row g-3">
+                <div class="col-md-7">
+                    <form asp-action="AddFromUrl" method="post">
+                        @Html.AntiForgeryToken()
+                        <label for="artwork-url" class="form-label">Paste a link</label>
+                        <div class="input-group">
+                            <input type="url" class="form-control" id="artwork-url" name="url"
+                                   placeholder="https://…" />
+                            <button type="submit" class="btn btn-outline-primary">Fetch</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="col-md-5">
+                    <form asp-action="AddFromUpload" method="post" enctype="multipart/form-data">
+                        @Html.AntiForgeryToken()
+                        <label for="artwork-file" class="form-label">Or upload a file</label>
+                        <div class="input-group">
+                            <input type="file" class="form-control" id="artwork-file" name="file"
+                                   accept="image/png,image/jpeg,image/gif,image/webp" />
+                            <button type="submit" class="btn btn-outline-primary">Add</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="sj-muted small mt-3 mb-0">
+                PNG, JPEG, GIF or WebP, up to @(ImageLimits.MaxBytes / (1024 * 1024))MB.
+                A transparent PNG gives the cleanest print.
+            </div>
+        </div>
+
+        <div class="sj-card p-3 mb-3">
+            <h2 class="h6 mb-3">What's on the sheet</h2>
+
+            @if (!Model.HasItems)
+            {
+                <div class="sj-muted">Nothing yet — add an image above.</div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width:5rem;"></th>
+                                <th>Image</th>
+                                <th style="width:9rem;">Printed width</th>
+                                <th style="width:7rem;">How many</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.Items)
+                            {
+                                <tr>
+                                    <td><img src="@item.ImageUrl" alt="@item.Label" class="sj-transfer-thumb" /></td>
+                                    <td>
+                                        <div class="small fw-semibold">@item.Label</div>
+                                        <div class="sj-muted small">@item.WidthMm × @item.HeightMm mm</div>
+
+                                        @if (item.IsRejected)
+                                        {
+                                            <span class="badge text-bg-danger">We can't print this one</span>
+                                            @if (!string.IsNullOrEmpty(item.RejectionReason))
+                                            {
+                                                <div class="small text-danger">@item.RejectionReason</div>
+                                            }
+                                        }
+                                        else if (item.IsLowResolution)
+                                        {
+                                            @* Warned about, never refused. The studio looks at
+                                               every image before it prints, so this is advice
+                                               rather than a wall — and it says what size would
+                                               work, so nobody is left guessing. *@
+                                            <span class="badge text-bg-warning">@item.Dpi DPI — may look soft</span>
+                                            <div class="sj-muted small">
+                                                Sharpest up to about @item.MaxSharpWidthMm mm wide.
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="sj-muted small">@item.Dpi DPI</span>
+                                        }
+                                    </td>
+                                    <td colspan="2">
+                                        <form asp-action="UpdateItem" method="post" class="d-flex gap-2">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="index" value="@item.Index" />
+
+                                            <div class="input-group input-group-sm">
+                                                <input type="number" class="form-control" name="widthMm"
+                                                       value="@item.WidthMm" min="10" max="1000" />
+                                                <span class="input-group-text">mm</span>
+                                            </div>
+
+                                            <input type="number" class="form-control form-control-sm"
+                                                   name="quantity" value="@item.Quantity" min="1" max="100"
+                                                   style="max-width:5rem;" />
+
+                                            <button type="submit" class="btn btn-sm btn-outline-secondary">Set</button>
+                                        </form>
+                                        <div class="sj-muted small mt-1">
+                                            Height follows the width, so nothing gets stretched.
+                                        </div>
+                                    </td>
+                                    <td class="text-end">
+                                        <form asp-action="RemoveItem" method="post">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="index" value="@item.Index" />
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+
+        @* ---------------------------------------------------------------- *@
+        @* Asking for it.                                                   *@
+        @* ---------------------------------------------------------------- *@
+        @if (Model.HasItems)
+        {
+            <div class="sj-card p-3">
+                <h2 class="h6 mb-3">Send the order</h2>
+
+                <form asp-action="Submit" method="post">
+                    @Html.AntiForgeryToken()
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label asp-for="Submit.CustomerName" class="form-label"></label>
+                            <input asp-for="Submit.CustomerName" class="form-control" autocomplete="name" />
+                            <span asp-validation-for="Submit.CustomerName" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="Submit.Phone" class="form-label"></label>
+                            <input asp-for="Submit.Phone" class="form-control" autocomplete="tel" />
+                            <span asp-validation-for="Submit.Phone" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="Submit.Email" class="form-label"></label>
+                            <input asp-for="Submit.Email" class="form-control" autocomplete="email" />
+                            <div class="form-text">Optional, but it's how we send you a confirmation.</div>
+                            <span asp-validation-for="Submit.Email" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="Submit.Notes" class="form-label"></label>
+                            <textarea asp-for="Submit.Notes" class="form-control" rows="2"></textarea>
+                        </div>
+                    </div>
+
+                    @* The same attestation the order form takes, in the same words,
+                       because it is the same promise about the same kind of picture.
+                       A gate, not a checkbox that gets recorded — the Domain refuses
+                       without it. *@
+                    <div class="form-check mt-3">
+                        <input asp-for="Submit.RightsAttested" class="form-check-input" type="checkbox" />
+                        <label asp-for="Submit.RightsAttested" class="form-check-label fw-semibold"></label>
+                        <div class="form-text">
+                            By ticking this you're confirming the artwork is yours to use — your own
+                            work, something you made with an image generator, something licensed to
+                            you, or something in the public domain — and that it doesn't feature
+                            cartoon or film characters, brand or team logos, or recognisable real
+                            people. You're asking us to print it on that basis. We review every
+                            image before printing, and we'll come back to you if there's a problem.
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary mt-3" disabled="@(!Model.CanSubmit)">
+                        Send the order
+                    </button>
+
+                    @if (!Model.CanSubmit)
+                    {
+                        <span class="sj-muted small ms-2">Everything has to fit on the sheet first.</span>
+                    }
+                </form>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

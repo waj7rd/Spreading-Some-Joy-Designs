@@ -1,0 +1,38 @@
+@model SheetSubmittedViewModel
+@{
+    ViewData["Title"] = "Order sent";
+}
+
+<div class="sj-card p-4 p-md-5 text-center mx-auto" style="max-width:44rem;">
+    <h1 class="sj-section-title mb-3">Thanks, @Model.CustomerName</h1>
+
+    <p class="mb-3">
+        We've got your @Model.SizeName sheet — @Model.TransferCount transfer@(Model.TransferCount == 1 ? "" : "s")
+        on it, at @Model.Price.ToString("C").
+    </p>
+
+    @if (Model.AnyAwaitingReview)
+    {
+        @* Said plainly rather than buried. Nothing prints until a person has
+           looked at it, and somebody who has just paid attention to a price
+           deserves to know the sheet isn't on the press yet. *@
+        <p class="mb-3">
+            Your artwork is with us for a quick look before it goes anywhere near the
+            press. That's normally the same day. We'll ring or email once it's cleared
+            and the sheet is booked in.
+        </p>
+    }
+    else
+    {
+        <p class="mb-3">
+            We'll confirm shortly and let you know when it's ready to collect.
+        </p>
+    }
+
+    <p class="sj-muted small mb-4">
+        Nothing is charged yet — we'll confirm the sheet with you first.
+    </p>
+
+    <a asp-action="Index" class="btn btn-outline-primary">Build another sheet</a>
+    <a asp-controller="Home" asp-action="Index" class="btn btn-outline-secondary">Back to the shop</a>
+</div>

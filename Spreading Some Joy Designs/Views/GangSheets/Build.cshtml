@@ -1,0 +1,395 @@
+@model GangSheetBuildViewModel
+@using SpreadingJoy.Domain.Production
+@{
+    ViewData["Title"] = Model.Sheet.Name;
+
+    // The film is drawn as a box of the right proportions and everything on it
+    // is positioned as a percentage, so the preview is the layout rather than a
+    // picture of one. The ratio comes from the same millimetres the packer used.
+    var canvasLengthMm = Model.IsEditable ? Model.Sheet.MaxLengthMm : Math.Max(Model.Sheet.UsedLengthMm, 1);
+    var aspect = Model.Sheet.WidthMm <= 0 ? 100 : Math.Round(canvasLengthMm / (double)Model.Sheet.WidthMm * 100, 3);
+
+    // Where the packer stopped. Everything below this line is film that doesn't
+    // have to be bought.
+    var usedPercent = canvasLengthMm <= 0 ? 0 : Math.Round(Model.Sheet.UsedLengthMm / (double)canvasLengthMm * 100, 3);
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-start mb-1 gap-2">
+    <div>
+        <h1 class="sj-section-title mb-1">@Model.Sheet.Name</h1>
+        <div>
+            <span class="badge @Model.Sheet.StatusCss">@Model.Sheet.Status</span>
+            <span class="sj-muted small ms-2">@Model.Sheet.FilmSize · @Model.Sheet.WidthMm × @Model.Sheet.MaxLengthMm mm</span>
+        </div>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-action="CutList" asp-route-id="@Model.Sheet.Id" class="btn btn-sm btn-outline-secondary">Cut list</a>
+        <a asp-action="Index" class="btn btn-sm btn-outline-secondary">All sheets</a>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+<div class="row g-4">
+    @* ------------------------------------------------------------------ *@
+    @* The sheet itself.                                                   *@
+    @* ------------------------------------------------------------------ *@
+    <div class="col-lg-4">
+        <div class="sj-card p-3">
+            <div class="d-flex justify-content-between align-items-baseline mb-2">
+                <span class="fw-semibold">On the film</span>
+                <span class="sj-muted small">@Model.Sheet.PlacedCount placed</span>
+            </div>
+
+            <div class="sj-film mb-3" style="padding-top:@(aspect.ToString(System.Globalization.CultureInfo.InvariantCulture))%;">
+                @foreach (var item in Model.Placed)
+                {
+                    <div class="sj-film-item@(item.IsLowResolution ? " sj-film-item-warn" : "")"
+                         title="@item.Label — @item.WidthMm × @item.HeightMm mm, @item.Dpi DPI@(item.Rotated ? " (rotated)" : "")"
+                         style="left:@(item.LeftPercent.ToString(System.Globalization.CultureInfo.InvariantCulture))%;
+                                top:@(item.TopPercent.ToString(System.Globalization.CultureInfo.InvariantCulture))%;
+                                width:@(item.WidthPercent.ToString(System.Globalization.CultureInfo.InvariantCulture))%;
+                                height:@(item.HeightPercent.ToString(System.Globalization.CultureInfo.InvariantCulture))%;">
+                        @if (!string.IsNullOrEmpty(item.ImageUrl))
+                        {
+                            <img src="@item.ImageUrl" alt="@item.Label" />
+                        }
+                    </div>
+                }
+
+                @if (usedPercent > 0 && usedPercent < 99.5)
+                {
+                    @* Everything below this line is film nobody has to buy. *@
+                    <div class="sj-film-cut" style="top:@(usedPercent.ToString(System.Globalization.CultureInfo.InvariantCulture))%;"></div>
+                }
+            </div>
+
+            <dl class="row mb-0 small">
+                <dt class="col-7 fw-normal sj-muted">Film used</dt>
+                <dd class="col-5 text-end mb-1">
+                    @if (Model.Sheet.UsedLengthMm > 0)
+                    {
+                        <text>@Model.Sheet.UsedLengthMm mm</text>
+                        <div class="sj-muted">@FilmSizes.MmToInches(Model.Sheet.UsedLengthMm).ToString("0.#") in</div>
+                    }
+                    else
+                    {
+                        <span class="sj-muted">—</span>
+                    }
+                </dd>
+
+                <dt class="col-7 fw-normal sj-muted">Covered</dt>
+                <dd class="col-5 text-end mb-1 fw-semibold">@Model.Sheet.CoveragePercent.ToString("0.#")%</dd>
+
+                <dt class="col-7 fw-normal sj-muted">Transfers</dt>
+                <dd class="col-5 text-end mb-0">@Model.Sheet.ItemCount</dd>
+            </dl>
+        </div>
+
+        @if (Model.Unplaced.Count > 0)
+        {
+            @* An item that didn't fit stays on the sheet rather than being
+               dropped. Silently losing it is how a customer's order goes
+               missing — so it's listed here instead. *@
+            <div class="alert alert-warning mt-3 mb-0">
+                <div class="fw-semibold mb-2">@Model.Unplaced.Count didn't fit</div>
+                <ul class="mb-2 ps-3 small">
+                    @foreach (var item in Model.Unplaced)
+                    {
+                        <li>@item.Label — @item.WidthMm × @item.HeightMm mm</li>
+                    }
+                </ul>
+                <div class="small mb-0">
+                    Make the sheet longer, take some off, or start a second one. A sheet with
+                    anything unplaced can't be marked ready.
+                </div>
+            </div>
+        }
+
+        <div class="sj-card p-3 mt-3">
+            <div class="fw-semibold mb-2">This sheet</div>
+
+            @if (Model.Sheet.Status == GangSheetStatusNames.Draft)
+            {
+                <form asp-action="MarkReady" asp-route-id="@Model.Sheet.Id" method="post" class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-primary btn-sm mb-2">Mark ready for the press</button>
+                </form>
+                <form asp-action="Repack" asp-route-id="@Model.Sheet.Id" method="post" class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-outline-secondary btn-sm mb-2">Repack</button>
+                </form>
+                <div class="sj-muted small mb-2">
+                    Marking it ready checks every image on it is still approved, and refuses
+                    if anything didn't fit.
+                </div>
+                <form asp-action="Delete" asp-route-id="@Model.Sheet.Id" method="post">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-outline-danger btn-sm">Delete this sheet</button>
+                </form>
+            }
+            else if (Model.Sheet.Status == GangSheetStatusNames.Ready)
+            {
+                <form asp-action="MarkPrinted" asp-route-id="@Model.Sheet.Id" method="post" class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-primary btn-sm mb-2">It's printed</button>
+                </form>
+                <form asp-action="Reopen" asp-route-id="@Model.Sheet.Id" method="post" class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-outline-secondary btn-sm mb-2">Reopen as a draft</button>
+                </form>
+                <div class="sj-muted small mb-0">
+                    Locked so the film and the cut list can't disagree.
+                </div>
+            }
+            else
+            {
+                <div class="sj-muted small mb-0">
+                    Printed @(Model.Sheet.PrintedAt?.ToLocalTime().ToString("d MMM yyyy, HH:mm") ?? "—").
+                    Kept as the record of what was on that piece of film.
+                </div>
+            }
+        </div>
+    </div>
+
+    @* ------------------------------------------------------------------ *@
+    @* What's waiting to go on it.                                         *@
+    @* ------------------------------------------------------------------ *@
+    <div class="col-lg-8">
+        @if (Model.IsEditable)
+        {
+            <div class="sj-card p-3 mb-3">
+                <h2 class="h6 mb-1">Waiting to be printed</h2>
+                <p class="sj-muted small mb-3">
+                    One row per printed side of every line on every open order — a front-and-back
+                    design is two transfers, because it's two pieces of film.
+                </p>
+
+                @if (Model.Candidates.Count == 0)
+                {
+                    <div class="sj-muted">Nothing on the board needs printing right now.</div>
+                }
+                else
+                {
+                    <form asp-action="AddItems" asp-route-id="@Model.Sheet.Id" method="post">
+                        @Html.AntiForgeryToken()
+
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                    <tr>
+                                        <th style="width:2.5rem;"></th>
+                                        <th style="width:4rem;"></th>
+                                        <th>Transfer</th>
+                                        <th>Due</th>
+                                        <th class="text-end">Size</th>
+                                        <th class="text-end" style="width:6.5rem;">Copies</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @for (var i = 0; i < Model.Candidates.Count; i++)
+                                    {
+                                        var c = Model.Candidates[i];
+                                        var suggested = Math.Max(1, c.Quantity);
+
+                                        <tr>
+                                            <td>
+                                                @if (c.IsApproved)
+                                                {
+                                                    <input type="checkbox" class="form-check-input"
+                                                           name="selected[@i].Selected" value="true" />
+                                                    @* Unchecked boxes post nothing, so the binder
+                                                       needs a false to fall back to. *@
+                                                    <input type="hidden" name="selected[@i].Selected" value="false" />
+                                                }
+                                            </td>
+                                            <td>
+                                                <img src="@c.ImageUrl" alt="@c.DesignName" class="sj-transfer-thumb" />
+                                            </td>
+                                            <td>
+                                                <div class="fw-semibold small">@c.DesignName</div>
+                                                <div class="sj-muted small">
+                                                    Order #@c.OrderId · @c.Side.ToLowerInvariant() · size @c.SizeCode
+                                                    @if (c.CustomerName != null)
+                                                    {
+                                                        <text> · @c.CustomerName</text>
+                                                    }
+                                                </div>
+                                                @if (!c.IsApproved)
+                                                {
+                                                    @* Nothing reaches film without a person having
+                                                       looked at it. Shown rather than hidden, so
+                                                       it's clear why the run is waiting. *@
+                                                    <span class="badge text-bg-danger">Artwork @c.ArtworkStatus.ToLowerInvariant()</span>
+                                                }
+                                                @if (c.AlreadyPlaced > 0)
+                                                {
+                                                    <span class="badge text-bg-secondary">@c.AlreadyPlaced already on a sheet</span>
+                                                }
+                                            </td>
+                                            <td class="small">@c.DueOn.ToString("d MMM")</td>
+                                            <td class="text-end small">
+                                                @c.SizeLabel
+                                                <div class="@(c.IsLowResolution ? "text-danger" : "sj-muted")">
+                                                    @c.Dpi DPI
+                                                </div>
+                                            </td>
+                                            <td class="text-end">
+                                                <input type="hidden" name="selected[@i].OrderLineId" value="@c.OrderLineId" />
+                                                <input type="hidden" name="selected[@i].Side" value="@c.Side" />
+                                                <input type="number" class="form-control form-control-sm text-end"
+                                                       name="selected[@i].Quantity" value="@suggested" min="1" max="100"
+                                                       @(c.IsApproved ? "" : "disabled") />
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-sm">Add to the sheet</button>
+                        <span class="sj-muted small ms-2">Adding repacks the sheet.</span>
+                    </form>
+                }
+            </div>
+        }
+
+        @* ---------------------------------------------------------------- *@
+        @* What's on the sheet already.                                     *@
+        @* ---------------------------------------------------------------- *@
+        <div class="sj-card p-3 mb-3">
+            <h2 class="h6 mb-3">On this sheet</h2>
+
+            @if (Model.Items.Count == 0)
+            {
+                <div class="sj-muted">Nothing on it yet.</div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width:4rem;"></th>
+                                <th>Transfer</th>
+                                <th class="text-end">Size</th>
+                                <th class="text-end">Position</th>
+                                @if (Model.IsEditable)
+                                {
+                                    <th></th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.Items)
+                            {
+                                <tr class="@(item.IsPlaced ? "" : "table-warning")">
+                                    <td><img src="@item.ImageUrl" alt="@item.Label" class="sj-transfer-thumb" /></td>
+                                    <td>
+                                        <div class="small">@item.Label</div>
+                                        @if (item.Rotated)
+                                        {
+                                            <span class="badge text-bg-info">rotated 90°</span>
+                                        }
+                                        @if (item.IsLowResolution)
+                                        {
+                                            <span class="badge text-bg-warning">@item.Dpi DPI</span>
+                                        }
+                                    </td>
+                                    <td class="text-end small">@item.WidthMm × @item.HeightMm mm</td>
+                                    <td class="text-end small">
+                                        @if (item.IsPlaced)
+                                        {
+                                            <text>@item.XMm, @item.YMm mm</text>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-danger">didn't fit</span>
+                                        }
+                                    </td>
+                                    @if (Model.IsEditable)
+                                    {
+                                        <td class="text-end">
+                                            <form asp-action="RemoveItem" asp-route-id="@Model.Sheet.Id" method="post">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="itemId" value="@item.Id" />
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                                            </form>
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+
+        @* ---------------------------------------------------------------- *@
+        @* The film settings. Changing any of these repacks.                *@
+        @* ---------------------------------------------------------------- *@
+        @if (Model.IsEditable)
+        {
+            <details class="sj-card p-3">
+                <summary class="fw-semibold">Sheet settings</summary>
+
+                <form asp-action="Settings" asp-route-id="@Model.Sheet.Id" method="post" class="mt-3">
+                    @Html.AntiForgeryToken()
+
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <label asp-for="Settings.Name" class="form-label"></label>
+                            <input asp-for="Settings.Name" class="form-control" />
+                        </div>
+                        <div class="col-md-2">
+                            <label asp-for="Settings.WidthMm" class="form-label"></label>
+                            <input asp-for="Settings.WidthMm" class="form-control" type="number" min="100" max="1000" />
+                        </div>
+                        <div class="col-md-2">
+                            <label asp-for="Settings.MaxLengthMm" class="form-label"></label>
+                            <input asp-for="Settings.MaxLengthMm" class="form-control" type="number" min="100" max="6000" />
+                        </div>
+                        <div class="col-md-2">
+                            <label asp-for="Settings.GutterMm" class="form-label"></label>
+                            <input asp-for="Settings.GutterMm" class="form-control" type="number" min="0" max="50" />
+                        </div>
+                        <div class="col-md-2">
+                            <label asp-for="Settings.MarginMm" class="form-label"></label>
+                            <input asp-for="Settings.MarginMm" class="form-control" type="number" min="0" max="50" />
+                        </div>
+                    </div>
+
+                    <div class="form-check mt-3">
+                        <input asp-for="Settings.AllowRotation" class="form-check-input" type="checkbox" />
+                        <label asp-for="Settings.AllowRotation" class="form-check-label"></label>
+                    </div>
+
+                    <div class="mt-3">
+                        <label asp-for="Settings.Notes" class="form-label"></label>
+                        <textarea asp-for="Settings.Notes" class="form-control" rows="2"></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-outline-primary btn-sm mt-3">Save and repack</button>
+                </form>
+            </details>
+        }
+        else if (!string.IsNullOrEmpty(Model.Notes))
+        {
+            <div class="sj-card p-3">
+                <div class="fw-semibold mb-1">Notes</div>
+                <div class="small mb-0">@Model.Notes</div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -30,6 +30,16 @@ public partial class SpreadingJoyContext : DbContext
 
     public virtual DbSet<LoginAudit> LoginAudits { get; set; } = null!;
 
+    public virtual DbSet<GangSheet> GangSheets { get; set; } = null!;
+
+    public virtual DbSet<GangSheetItem> GangSheetItems { get; set; } = null!;
+
+    public virtual DbSet<GangSheetSize> GangSheetSizes { get; set; } = null!;
+
+    public virtual DbSet<GangSheetRequest> GangSheetRequests { get; set; } = null!;
+
+    public virtual DbSet<GangSheetRequestItem> GangSheetRequestItems { get; set; } = null!;
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ConfigureModel(modelBuilder);

@@ -1,0 +1,190 @@
+@model GangSheetListViewModel
+@using SpreadingJoy.Domain.Production
+@{
+    ViewData["Title"] = "Gang sheets";
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-start mb-3 gap-2">
+    <div>
+        <h1 class="sj-section-title mb-1">Press sheets</h1>
+        <p class="sj-muted mb-0">
+            Film is bought by the width and charged by the length, so a half-empty sheet is
+            half the film thrown away. Pack what the press owes onto as little of it as possible.
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-action="Requests" class="btn btn-sm btn-outline-secondary">Sheet requests</a>
+        @if (User.IsInRole(Roles.Admin) || User.IsInRole(Roles.Manager))
+        {
+            <a asp-action="Sizes" class="btn btn-sm btn-outline-secondary">Sheet prices</a>
+        }
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        @if (Model.Sheets.Count == 0)
+        {
+            <div class="sj-card p-4 text-center sj-muted">
+                No sheets yet. Start one on the right, then add what's waiting to be printed.
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive sj-card p-0">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Sheet</th>
+                            <th>Film</th>
+                            <th class="text-end">Transfers</th>
+                            <th class="text-end">Used</th>
+                            <th class="text-end">Covered</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var sheet in Model.Sheets)
+                        {
+                            <tr>
+                                <td>
+                                    <a asp-action="Build" asp-route-id="@sheet.Id" class="fw-semibold text-decoration-none">@sheet.Name</a>
+                                    <div>
+                                        <span class="badge @sheet.StatusCss">@sheet.Status</span>
+                                        @if (sheet.UnplacedCount > 0)
+                                        {
+                                            <span class="badge text-bg-danger ms-1">@sheet.UnplacedCount didn't fit</span>
+                                        }
+                                    </div>
+                                    <div class="sj-muted small">
+                                        @if (sheet.IsCustomerSheet)
+                                        {
+                                            @* Somebody bought this one. Worth saying on the row:
+                                               a customer's sheet and this week's production run
+                                               are handled the same way but mean different things. *@
+                                            <text>For @sheet.CustomerName · @sheet.Price.ToString("C")</text>
+                                        }
+                                        else
+                                        {
+                                            <text>Started @sheet.CreatedAt.ToLocalTime().ToString("d MMM yyyy")</text>
+                                            @if (sheet.CreatedBy != null)
+                                            {
+                                                <text> by @sheet.CreatedBy</text>
+                                            }
+                                        }
+                                    </div>
+                                </td>
+                                <td class="small">
+                                    @sheet.FilmSize
+                                    <div class="sj-muted">@sheet.WidthMm × @sheet.MaxLengthMm mm</div>
+                                </td>
+                                <td class="text-end">@sheet.ItemCount</td>
+                                <td class="text-end small">@sheet.UsedSize</td>
+                                <td class="text-end">
+                                    @* The number that says whether the sheet was worth
+                                       printing. Anything under half means more film went
+                                       in the bin than on a shirt. *@
+                                    <span class="fw-semibold">@sheet.CoveragePercent.ToString("0.#")%</span>
+                                </td>
+                                <td class="text-end">
+                                    <a asp-action="Build" asp-route-id="@sheet.Id" class="btn btn-sm btn-outline-secondary">Open</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    <div class="col-lg-5">
+        <div class="sj-card p-4">
+            <h2 class="h5 mb-3">Start a sheet</h2>
+
+            <form asp-action="Create" method="post">
+                @Html.AntiForgeryToken()
+
+                @if (!string.IsNullOrEmpty(Model.NewSheet.ErrorMessage))
+                {
+                    <div class="alert alert-danger">@Model.NewSheet.ErrorMessage</div>
+                }
+
+                <div class="mb-3">
+                    <label asp-for="NewSheet.Name" class="form-label"></label>
+                    <input asp-for="NewSheet.Name" class="form-control" placeholder="Week of the 3rd" />
+                    <span asp-validation-for="NewSheet.Name" class="text-danger small"></span>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label asp-for="NewSheet.WidthMm" class="form-label"></label>
+                        <div class="input-group">
+                            <input asp-for="NewSheet.WidthMm" class="form-control" type="number" min="100" max="1000" />
+                            <span class="input-group-text">mm</span>
+                        </div>
+                        <div class="form-text">
+                            @* Film comes off a roll of a fixed width, and every supplier
+                               quotes it in inches. *@
+                            Common widths:
+                            @string.Join(", ", FilmSizes.WidthsInInches.Select(w => $"{w}\" ({FilmSizes.InchesToMm(w)}mm)"))
+                        </div>
+                        <span asp-validation-for="NewSheet.WidthMm" class="text-danger small"></span>
+                    </div>
+                    <div class="col-6">
+                        <label asp-for="NewSheet.MaxLengthMm" class="form-label"></label>
+                        <div class="input-group">
+                            <input asp-for="NewSheet.MaxLengthMm" class="form-control" type="number" min="100" max="6000" />
+                            <span class="input-group-text">mm</span>
+                        </div>
+                        <div class="form-text">
+                            A ceiling, not a target — you pay for what gets used.
+                        </div>
+                        <span asp-validation-for="NewSheet.MaxLengthMm" class="text-danger small"></span>
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label asp-for="NewSheet.GutterMm" class="form-label"></label>
+                        <div class="input-group">
+                            <input asp-for="NewSheet.GutterMm" class="form-control" type="number" min="0" max="50" />
+                            <span class="input-group-text">mm</span>
+                        </div>
+                        <div class="form-text">Room for the scissors.</div>
+                    </div>
+                    <div class="col-6">
+                        <label asp-for="NewSheet.MarginMm" class="form-label"></label>
+                        <div class="input-group">
+                            <input asp-for="NewSheet.MarginMm" class="form-control" type="number" min="0" max="50" />
+                            <span class="input-group-text">mm</span>
+                        </div>
+                        <div class="form-text">The edge the rollers touch.</div>
+                    </div>
+                </div>
+
+                <div class="form-check mb-3">
+                    <input asp-for="NewSheet.AllowRotation" class="form-check-input" type="checkbox" />
+                    <label asp-for="NewSheet.AllowRotation" class="form-check-label"></label>
+                    <div class="form-text">
+                        Only used when a transfer wouldn't otherwise fit across the film.
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Start the sheet</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

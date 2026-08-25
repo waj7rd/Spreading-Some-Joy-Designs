@@ -4,8 +4,9 @@
     {
       "name": "spreading-joy",
       "runtimeExecutable": "dotnet",
-      "runtimeArgs": ["run", "--project", "Spreading Some Joy Designs/Spreading Some Joy Designs.csproj", "--launch-profile", "http"],
-      "port": 5030
+      "runtimeArgs": ["run", "--project", "Spreading Some Joy Designs/Spreading Some Joy Designs.csproj", "--launch-profile", "https"],
+      "port": 7230,
+      "url": "https://localhost:7230"
     }
   ]
 }

@@ -11,6 +11,11 @@ public class OrderLogic : IOrderLogic
     // out the day on its own.
     private const int MaxQuantityPerLine = 500;
 
+    // Both optional, both bounded. A carrier name is "USPS" or "UPS Ground";
+    // a tracking number is long but not unbounded, and the column has to hold it.
+    private const int MaxCarrierLength = 50;
+    private const int MaxTrackingLength = 100;
+
     private readonly IOrderRepository _orderRepository;
     private readonly IDesignRepository _designRepository;
     private readonly IProductRepository _productRepository;
@@ -182,12 +187,81 @@ public class OrderLogic : IOrderLogic
         if (order.Status == OrderStatus.Cancelled)
             return OrderResult.Fail("That order was cancelled.");
 
+        // Shipping carries a dispatch record — when it went, and how to follow
+        // it — so it goes through its own method, the same arrangement Cancelled
+        // uses for its reason. Reachable as a plain status change, it would
+        // produce orders marked as posted with nothing saying when.
+        if (status == OrderStatus.Shipped)
+            return OrderResult.Fail("Use Mark shipped, so the dispatch gets recorded.");
+
+        // A collection order is never "shipped" and a postal one is never "ready
+        // for pickup". Enforced here rather than merely hidden on the board,
+        // because the board is a suggestion and this is the rule — same shape as
+        // Fulfilment.Check running even when the form never offered the choice.
+        if (status == OrderStatus.ReadyForPickup && order.IsShipping)
+            return OrderResult.Fail("That order is being posted — mark it shipped instead.");
+
         order.Status = status;
         order.CompletedAt = status == OrderStatus.Completed ? _clock.UtcNow : null;
+
+        // Moving back off Shipped means it hasn't gone after all, so the
+        // dispatch record goes with it. Completing a posted order is the one
+        // case that keeps it: that parcel really did leave, and the tracking
+        // number is the history of the job.
+        if (order.HasBeenDispatched && status != OrderStatus.Completed)
+            ClearDispatch(order);
 
         await _orderRepository.SaveChangesAsync();
         return OrderResult.Ok(order.OrderId);
     }
+
+    public async Task<OrderResult> MarkShippedAsync(int orderId, string? carrier, string? trackingNumber)
+    {
+        var order = await _orderRepository.GetAsync(o => o.OrderId == orderId);
+        if (order == null)
+            return OrderResult.Fail("Order not found.");
+
+        if (order.Status == OrderStatus.Cancelled)
+            return OrderResult.Fail("That order was cancelled.");
+
+        if (order.Status == OrderStatus.Completed)
+            return OrderResult.Fail("That order is already finished.");
+
+        // Only a postal order can be posted. Checked here rather than trusted
+        // from the screen, because the screen only shows what it shows.
+        if (!order.IsShipping)
+            return OrderResult.Fail("That's a collection order — it isn't going anywhere in the post.");
+
+        // A postal order that has somehow lost its street line has nothing to
+        // write on the parcel. Worth refusing loudly rather than recording a
+        // dispatch to nowhere.
+        if (string.IsNullOrWhiteSpace(order.ShipToLine1))
+            return OrderResult.Fail("That order has no address on it. Add one before marking it shipped.");
+
+        if ((carrier?.Trim().Length ?? 0) > MaxCarrierLength)
+            return OrderResult.Fail($"Carrier has to be {MaxCarrierLength} characters or fewer.");
+
+        if ((trackingNumber?.Trim().Length ?? 0) > MaxTrackingLength)
+            return OrderResult.Fail($"Tracking number has to be {MaxTrackingLength} characters or fewer.");
+
+        order.Status = OrderStatus.Shipped;
+        order.DispatchedAt = _clock.UtcNow;
+        order.Carrier = Blank(carrier);
+        order.TrackingNumber = Blank(trackingNumber);
+
+        await _orderRepository.SaveChangesAsync();
+        return OrderResult.Ok(order.OrderId);
+    }
+
+    private static void ClearDispatch(Order order)
+    {
+        order.DispatchedAt = null;
+        order.Carrier = null;
+        order.TrackingNumber = null;
+    }
+
+    private static string? Blank(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     public async Task<OrderResult> CancelAsync(int orderId, string reason)
     {

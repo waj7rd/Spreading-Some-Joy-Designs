@@ -346,7 +346,7 @@ public class OrderRequestLogicTests
         Assert.True(accepted.Success);
 
         var order = _orders.All.Single();
-        Assert.True(order.IsShipped);
+        Assert.True(order.IsShipping);
         Assert.Equal("14 Sycamore Street", order.ShipToLine1);
         Assert.Equal("65301", order.ShipToPostalCode);
         Assert.Equal(8m, order.ShippingFee);
@@ -362,7 +362,7 @@ public class OrderRequestLogicTests
         await logic.AcceptAsync(submitted.OrderRequestId, 9, Due);
 
         var order = _orders.All.Single();
-        Assert.False(order.IsShipped);
+        Assert.False(order.IsShipping);
         Assert.Equal(0m, order.ShippingFee);
         Assert.Equal(order.Subtotal, order.Total);
     }

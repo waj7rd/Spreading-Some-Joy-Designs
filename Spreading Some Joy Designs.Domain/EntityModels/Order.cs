@@ -54,6 +54,22 @@ public partial class Order
 
     public DateTime? CompletedAt { get; set; }
 
+    // When it actually left the building, and how it can be followed.
+    //
+    // Set together by OrderLogic.MarkShippedAsync and cleared together when the
+    // status moves back off Shipped. A tracking number left behind on an order
+    // that is no longer posted is worse than none at all, because somebody will
+    // read it out to a customer.
+    //
+    // Carrier and TrackingNumber are both optional: a job handed over the
+    // counter to a courier has neither, and refusing to record the dispatch for
+    // want of a reference number would mean the studio stops recording them.
+    public DateTime? DispatchedAt { get; set; }
+
+    public string? Carrier { get; set; }
+
+    public string? TrackingNumber { get; set; }
+
     public string? CancellationReason { get; set; }
 
     public virtual Customer Customer { get; set; } = null!;
@@ -65,7 +81,7 @@ public partial class Order
     // Whether this one goes in a box. Read from the stored method rather than
     // from "is there an address", so an order is never reclassified by someone
     // clearing a field.
-    public bool IsShipped => EntityModels.FulfilmentMethod.IsShipping(FulfilmentMethod);
+    public bool IsShipping => EntityModels.FulfilmentMethod.IsShipping(FulfilmentMethod);
 
     // The garments alone, read off the snapshotted line prices so it never
     // restates itself when the catalogue changes.
@@ -81,6 +97,11 @@ public partial class Order
     public decimal Total => Subtotal + ShippingFee;
 
     public int GarmentCount => OrderLines.Sum(l => l.Quantity);
+
+    // It has left us. Read from the dispatch record rather than from the status,
+    // so an order moved on by hand can't claim to have been posted when nobody
+    // wrote down when.
+    public bool HasBeenDispatched => DispatchedAt != null;
 }
 
 // Where an order is on the floor. String constants rather than an enum because
@@ -91,16 +112,42 @@ public static class OrderStatus
     public const string InProduction = "InProduction";
     public const string Printed = "Printed";
     public const string ReadyForPickup = "ReadyForPickup";
+
+    // Printed, packed, and gone. The postal counterpart of ReadyForPickup
+    // rather than a stage after it: both mean "we've finished, it's with the
+    // customer now", and an order is only ever eligible for one of them.
+    //
+    // This reverses an earlier decision — the notes used to argue that how an
+    // order reaches somebody isn't a stage it passes through. That held while
+    // the only thing to know was the method. It stopped holding once staff
+    // needed to tell a parcel that has gone from one still sitting on the
+    // bench, which is a question about time, and time belongs on the chain.
+    public const string Shipped = "Shipped";
+
     public const string Completed = "Completed";
     public const string Cancelled = "Cancelled";
 
     public static readonly string[] All =
-        [Received, InProduction, Printed, ReadyForPickup, Completed, Cancelled];
+        [Received, InProduction, Printed, ReadyForPickup, Shipped, Completed, Cancelled];
 
     // Statuses that still occupy press capacity. A cancelled or collected order
     // doesn't compete for a production day.
+    //
+    // Shipped is in here for the same reason ReadyForPickup is: the shirts have
+    // been through the press but the job isn't closed, and dropping it out would
+    // quietly hand that day's capacity back the moment a parcel was posted.
     public static readonly string[] Open =
-        [Received, InProduction, Printed, ReadyForPickup];
+        [Received, InProduction, Printed, ReadyForPickup, Shipped];
+
+    // Which finishing status a job is allowed to reach. A collection order is
+    // never "shipped" and a postal one is never "ready for pickup" — offering
+    // both is how an order ends up marked as waiting on a counter it will never
+    // be collected from.
+    public static string FinishingStatusFor(string fulfilmentMethod) =>
+        FulfilmentMethod.IsShipping(fulfilmentMethod) ? Shipped : ReadyForPickup;
+
+    public static bool IsFinishingStatus(string status) =>
+        status == ReadyForPickup || status == Shipped;
 
     public static bool IsOpen(string status) => Open.Contains(status);
 }

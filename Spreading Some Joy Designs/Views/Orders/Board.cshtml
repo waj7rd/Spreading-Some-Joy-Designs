@@ -65,13 +65,26 @@ else
                             <form asp-action="SetStatus" method="post" class="d-inline-flex gap-1">
                                 <input type="hidden" name="id" value="@order.Id" />
                                 <select name="status" class="form-select form-select-sm" style="width:auto">
-                                    @foreach (var status in Model.Statuses.Where(s => s != OrderStatus.Cancelled))
+                                    @foreach (var status in order.SelectableStatuses(Model.Statuses))
                                     {
                                         <option value="@status" selected="@(status == order.Status)">@status</option>
                                     }
                                 </select>
                                 <button type="submit" class="btn btn-sm btn-outline-joy">Set</button>
                             </form>
+
+                            @* The quick path: records that it went, and when. The
+                               carrier and tracking number are asked for on the order
+                               screen where there's room — both optional, so a parcel
+                               handed over at the counter still gets logged rather
+                               than the dispatch going unrecorded. *@
+                            @if (order.AwaitingDispatch)
+                            {
+                                <form asp-action="MarkShipped" method="post" class="d-inline">
+                                    <input type="hidden" name="id" value="@order.Id" />
+                                    <button type="submit" class="btn btn-sm btn-outline-primary">Post it</button>
+                                </form>
+                            }
                         </td>
                     </tr>
                 }

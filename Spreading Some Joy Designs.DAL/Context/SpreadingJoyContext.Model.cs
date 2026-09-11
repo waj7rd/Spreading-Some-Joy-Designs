@@ -185,7 +185,14 @@ public partial class SpreadingJoyContext
             entity.ToTable("Customers");
             entity.HasKey(e => e.CustomerId).HasName("PK_Customers");
 
-            entity.HasIndex(e => e.Email, "UQ_Customers_Email").IsUnique();
+            // Filtered, so the rule is "no two customers share an email" and not
+            // "at most one customer has no email". SQL Server treats NULLs as
+            // equal in a plain UNIQUE constraint, which made the second walk-in
+            // with no address fail on insert. See
+            // Scripts/FixCustomerEmailUniqueness.sql.
+            entity.HasIndex(e => e.Email, "UQ_Customers_Email")
+                .IsUnique()
+                .HasFilter("[Email] IS NOT NULL");
 
             entity.Property(e => e.FullName).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Email).HasMaxLength(255);
@@ -233,6 +240,11 @@ public partial class SpreadingJoyContext
             entity.Property(e => e.ShipToState).HasMaxLength(50);
             entity.Property(e => e.ShipToPostalCode).HasMaxLength(20);
 
+            // The dispatch record. All three nullable and written together —
+            // see Order.DispatchedAt.
+            entity.Property(e => e.Carrier).HasMaxLength(50);
+            entity.Property(e => e.TrackingNumber).HasMaxLength(100);
+
             entity.Property(e => e.Status)
                 .IsRequired()
                 .HasMaxLength(20)
@@ -256,7 +268,8 @@ public partial class SpreadingJoyContext
             entity.Ignore(e => e.Subtotal);
             entity.Ignore(e => e.Total);
             entity.Ignore(e => e.GarmentCount);
-            entity.Ignore(e => e.IsShipped);
+            entity.Ignore(e => e.IsShipping);
+            entity.Ignore(e => e.HasBeenDispatched);
         });
 
         modelBuilder.Entity<OrderLine>(entity =>
@@ -466,11 +479,38 @@ public partial class SpreadingJoyContext
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("FK_GangSheets_Users");
 
+            // How a customer sheet reaches them, and the dispatch record for
+            // when it has. Both mirror Orders — see GangSheet.DispatchedAt for
+            // why this is a record here rather than a status.
+            entity.Property(e => e.FulfilmentMethod)
+                .IsRequired()
+                .HasMaxLength(20)
+                .HasDefaultValue(FulfilmentMethod.Pickup)
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_GangSheets_FulfilmentMethod");
+
+            entity.Property(e => e.ShipToLine1).HasMaxLength(200);
+            entity.Property(e => e.ShipToLine2).HasMaxLength(200);
+            entity.Property(e => e.ShipToCity).HasMaxLength(100);
+            entity.Property(e => e.ShipToState).HasMaxLength(50);
+            entity.Property(e => e.ShipToPostalCode).HasMaxLength(20);
+
+            entity.Property(e => e.ShippingFee)
+                .HasColumnType("decimal(10, 2)")
+                .HasDefaultValue(0m)
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_GangSheets_ShippingFee");
+
+            entity.Property(e => e.Carrier).HasMaxLength(50);
+            entity.Property(e => e.TrackingNumber).HasMaxLength(100);
+
             // Counted in C# from the items — not columns.
             entity.Ignore(e => e.IsEditable);
             entity.Ignore(e => e.PlacedCount);
             entity.Ignore(e => e.UnplacedCount);
             entity.Ignore(e => e.CoveragePercent);
+            entity.Ignore(e => e.IsShipping);
+            entity.Ignore(e => e.HasBeenDispatched);
+            entity.Ignore(e => e.Total);
+            entity.Ignore(e => e.AwaitingDispatch);
         });
 
         modelBuilder.Entity<GangSheetItem>(entity =>
@@ -580,6 +620,23 @@ public partial class SpreadingJoyContext
 
             entity.Property(e => e.PriceQuoted).HasColumnType("decimal(10, 2)");
 
+            entity.Property(e => e.ShippingFee)
+                .HasColumnType("decimal(10, 2)")
+                .HasDefaultValue(0m)
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_GangSheetRequests_ShippingFee");
+
+            entity.Property(e => e.FulfilmentMethod)
+                .IsRequired()
+                .HasMaxLength(20)
+                .HasDefaultValue(FulfilmentMethod.Pickup)
+                .HasAnnotation("Relational:DefaultConstraintName", "DF_GangSheetRequests_FulfilmentMethod");
+
+            entity.Property(e => e.ShipToLine1).HasMaxLength(200);
+            entity.Property(e => e.ShipToLine2).HasMaxLength(200);
+            entity.Property(e => e.ShipToCity).HasMaxLength(100);
+            entity.Property(e => e.ShipToState).HasMaxLength(50);
+            entity.Property(e => e.ShipToPostalCode).HasMaxLength(20);
+
             entity.Property(e => e.RightsAttested)
                 .HasDefaultValue(false)
                 .HasAnnotation("Relational:DefaultConstraintName", "DF_GangSheetRequests_RightsAttested");
@@ -611,6 +668,8 @@ public partial class SpreadingJoyContext
                 .HasConstraintName("FK_GangSheetRequests_GangSheets");
 
             entity.Ignore(e => e.TransferCount);
+            entity.Ignore(e => e.IsShipping);
+            entity.Ignore(e => e.TotalQuoted);
         });
 
         modelBuilder.Entity<GangSheetRequestItem>(entity =>

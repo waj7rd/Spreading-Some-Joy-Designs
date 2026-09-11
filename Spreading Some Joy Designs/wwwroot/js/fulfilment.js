@@ -10,6 +10,11 @@
 // With scripting off, whichever state the server rendered stays put and the form
 // still submits correctly — the address fields are simply always visible once
 // postage has been chosen and the page re-rendered.
+//
+// Two forms use this now, the garment order form and the gang sheet builder, so
+// it works off attributes as well as the original ids. They share the same radio
+// ids deliberately: the two are never on screen together, and one script beats
+// two that drift apart.
 
 (function () {
     'use strict';
@@ -17,10 +22,17 @@
     var shipping = document.getElementById('fulfil-shipping');
     if (!shipping) return;
 
-    var toggled = [
+    var shippingOnly = [
         document.getElementById('ship-to'),
         document.getElementById('postage-line')
-    ];
+    ].filter(Boolean);
+
+    document.querySelectorAll('[data-shipping-only]').forEach(function (element) {
+        shippingOnly.push(element);
+    });
+
+    var pickupOnly = Array.prototype.slice.call(
+        document.querySelectorAll('[data-pickup-only]'));
 
     document.querySelectorAll('[data-fulfilment]').forEach(function (radio) {
         radio.addEventListener('change', sync);
@@ -32,8 +44,9 @@
     sync();
 
     function sync() {
-        toggled.forEach(function (element) {
-            if (element) element.hidden = !shipping.checked;
-        });
+        var posting = shipping.checked;
+
+        shippingOnly.forEach(function (element) { element.hidden = !posting; });
+        pickupOnly.forEach(function (element) { element.hidden = posting; });
     }
 })();

@@ -151,12 +151,86 @@
             }
             else
             {
-                <div class="sj-muted small mb-0">
+                <div class="sj-muted small mb-2">
                     Printed @(Model.Sheet.PrintedAt?.ToLocalTime().ToString("d MMM yyyy, HH:mm") ?? "—").
                     Kept as the record of what was on that piece of film.
                 </div>
+
+                @* Posting it is a fact about the envelope, not about the film, so
+                   it's a record rather than another status — see
+                   GangSheet.DispatchedAt. The sheet stays Printed. *@
+                @if (Model.Sheet.HasBeenDispatched)
+                {
+                    <div class="pt-2 border-top small">
+                        <div class="fw-semibold">
+                            Posted @Model.Sheet.DispatchedAt!.Value.ToLocalTime().ToString("d MMM yyyy, HH:mm")
+                        </div>
+                        @if (!string.IsNullOrEmpty(Model.Sheet.Carrier))
+                        {
+                            <div class="sj-muted">via @Model.Sheet.Carrier</div>
+                        }
+                        @if (!string.IsNullOrEmpty(Model.Sheet.TrackingNumber))
+                        {
+                            <div>Tracking: <code>@Model.Sheet.TrackingNumber</code></div>
+                        }
+                    </div>
+                }
+                else if (Model.Sheet.AwaitingDispatch)
+                {
+                    <form asp-action="MarkDispatched" asp-route-id="@Model.Sheet.Id" method="post" class="pt-2 border-top">
+                        @Html.AntiForgeryToken()
+
+                        <div class="fw-semibold small mb-2">Post it</div>
+
+                        <input type="text" class="form-control form-control-sm mb-2"
+                               name="carrier" maxlength="50" placeholder="Carrier (optional)" />
+                        <input type="text" class="form-control form-control-sm mb-2"
+                               name="trackingNumber" maxlength="100" placeholder="Tracking number (optional)" />
+
+                        <button type="submit" class="btn btn-sm btn-primary">Mark as posted</button>
+                    </form>
+                }
             }
         </div>
+
+        @* Where a customer sheet is going, and what they paid. Studio sheets have
+           none of this — the studio doesn't post film to itself. *@
+        @if (Model.Sheet.IsCustomerSheet)
+        {
+            <div class="sj-card p-3 mt-3">
+                <div class="fw-semibold mb-2">For @Model.Sheet.CustomerName</div>
+
+                @if (Model.Sheet.IsShipping)
+                {
+                    @foreach (var line in Model.Sheet.ShipToLines)
+                    {
+                        <div class="small">@line</div>
+                    }
+
+                    @* Shouldn't be reachable — a sheet can't be accepted as
+                       shipping without one — but a blank card would read as "no
+                       address needed" rather than as something being wrong. *@
+                    @if (Model.Sheet.ShipToLines.Count == 0)
+                    {
+                        <div class="text-danger small">No address on this sheet — don't post it.</div>
+                    }
+
+                    <dl class="row mb-0 small mt-2">
+                        <dt class="col-7 fw-normal sj-muted">Sheet</dt>
+                        <dd class="col-5 text-end mb-1">@Model.Sheet.Price.ToString("C")</dd>
+                        <dt class="col-7 fw-normal sj-muted">Postage</dt>
+                        <dd class="col-5 text-end mb-1">@Model.Sheet.ShippingFee.ToString("C")</dd>
+                        <dt class="col-7 fw-semibold">Total</dt>
+                        <dd class="col-5 text-end mb-0 fw-semibold">@Model.Sheet.Total.ToString("C")</dd>
+                    </dl>
+                }
+                else
+                {
+                    <div class="sj-muted small">Being collected from the studio.</div>
+                    <div class="small mt-2">@Model.Sheet.Price.ToString("C")</div>
+                }
+            </div>
+        }
     </div>
 
     @* ------------------------------------------------------------------ *@

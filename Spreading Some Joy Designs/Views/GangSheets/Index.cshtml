@@ -71,7 +71,14 @@
                                             @* Somebody bought this one. Worth saying on the row:
                                                a customer's sheet and this week's production run
                                                are handled the same way but mean different things. *@
-                                            <text>For @sheet.CustomerName · @sheet.Price.ToString("C")</text>
+                                            @* The total, not the sheet price — postage is part of
+                                               what this customer owes, and a figure that leaves it
+                                               out is the wrong number to read off a list. *@
+                                            <text>For @sheet.CustomerName · @sheet.Total.ToString("C")</text>
+                                            @if (sheet.IsShipping)
+                                            {
+                                                <span class="badge text-bg-info ms-1">@(sheet.HasBeenDispatched ? "Posted" : "To post")</span>
+                                            }
                                         }
                                         else
                                         {

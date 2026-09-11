@@ -2,6 +2,10 @@ using System.ComponentModel.DataAnnotations;
 using SpreadingJoy.Domain.Production;
 using SpreadingJoy.ViewModels.Validation;
 
+// Aliased for the same reason OrderViewModels does it: the view model has a
+// property called FulfilmentMethod, which shadows the type of the same name.
+using FulfilmentMethods = SpreadingJoy.Domain.EntityModels.FulfilmentMethod;
+
 namespace SpreadingJoy.ViewModels;
 
 // The public gang sheet builder.
@@ -93,6 +97,19 @@ public class SheetPreviewViewModel
     public IReadOnlyList<string> TooBig { get; set; } = [];
     public IReadOnlyList<string> NoRoom { get; set; } = [];
 
+    // Postage as it stands right now, and whether the studio is offering it at
+    // all. Read live — it is only frozen onto the request at submission.
+    public bool OffersShipping { get; set; }
+    public decimal ShippingFee { get; set; }
+
+    // Whether the visitor has asked for it to be posted, so the summary can show
+    // the total they'd actually pay rather than the sheet price alone.
+    public bool IsShipping { get; set; }
+
+    public decimal PostageDue => IsShipping ? ShippingFee : 0m;
+
+    public decimal Total => Price + PostageDue;
+
     public bool Fits => TooBig.Count == 0 && NoRoom.Count == 0;
 
     public double UsedPercent =>
@@ -140,6 +157,37 @@ public class SubmitSheetViewModel
     // GangSheetRequestLogic, which is where it can't be skipped.
     [Display(Name = "I have the right to use this artwork")]
     public bool RightsAttested { get; set; }
+
+    // How they want it. Only rendered when the studio is posting; refused by
+    // Fulfilment.Check either way, because the form is a suggestion and the
+    // switch can change while somebody has the builder open.
+    [Display(Name = "How would you like it?")]
+    public string FulfilmentMethod { get; set; } = FulfilmentMethods.Pickup;
+
+    public bool IsShipping => FulfilmentMethods.IsShipping(FulfilmentMethod);
+
+    // Deliberately without [Required]. Whether an address is needed depends on
+    // the method, and Fulfilment.Check is the one place that decides — a
+    // required attribute here would refuse a perfectly good collection order.
+    [StringLength(200)]
+    [Display(Name = "Address")]
+    public string? ShipToLine1 { get; set; }
+
+    [StringLength(200)]
+    [Display(Name = "Address line 2")]
+    public string? ShipToLine2 { get; set; }
+
+    [StringLength(100)]
+    [Display(Name = "City")]
+    public string? ShipToCity { get; set; }
+
+    [StringLength(50)]
+    [Display(Name = "State")]
+    public string? ShipToState { get; set; }
+
+    [StringLength(20)]
+    [Display(Name = "ZIP")]
+    public string? ShipToPostalCode { get; set; }
 }
 
 // What the visitor sees after asking for a sheet.
@@ -148,6 +196,10 @@ public class SheetSubmittedViewModel
     public string CustomerName { get; set; } = string.Empty;
     public string SizeName { get; set; } = string.Empty;
     public decimal Price { get; set; }
+    public decimal ShippingFee { get; set; }
     public int TransferCount { get; set; }
     public bool AnyAwaitingReview { get; set; }
+    public bool IsShipping { get; set; }
+
+    public decimal Total => Price + ShippingFee;
 }

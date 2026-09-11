@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
     <ProjectReference Include="..\Spreading Some Joy Designs.DAL\Spreading Some Joy Designs.DAL.csproj" />
@@ -10,6 +10,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>SpreadingJoy</RootNamespace>
+    <UserSecretsId>140a2113-c3d6-4408-a2a2-03e5ff14e555</UserSecretsId>
   </PropertyGroup>
 
 </Project>

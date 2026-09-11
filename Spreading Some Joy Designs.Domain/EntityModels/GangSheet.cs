@@ -59,6 +59,38 @@ public partial class GangSheet
     // read live off the catalogue. Same rule as OrderLines.UnitPrice.
     public decimal Price { get; set; }
 
+    // How it reaches them, carried across from the request exactly as they asked
+    // for it. 'Pickup' on every studio sheet — the studio doesn't post film to
+    // itself.
+    public string FulfilmentMethod { get; set; } = EntityModels.FulfilmentMethod.Pickup;
+
+    public string? ShipToLine1 { get; set; }
+
+    public string? ShipToLine2 { get; set; }
+
+    public string? ShipToCity { get; set; }
+
+    public string? ShipToState { get; set; }
+
+    public string? ShipToPostalCode { get; set; }
+
+    // Postage, snapshotted from what the customer was quoted.
+    public decimal ShippingFee { get; set; }
+
+    // When the sheet actually went, and how it can be followed. Set together by
+    // GangSheetLogic.MarkDispatchedAsync.
+    //
+    // A record rather than a status, unlike orders. The sheet's chain — draft,
+    // ready, printed — is about the film: where it is in being made. Posting it
+    // is a fact about the envelope, and stapling it onto the film's chain would
+    // mean a sheet that was printed and a sheet that was posted couldn't both
+    // be true at once.
+    public DateTime? DispatchedAt { get; set; }
+
+    public string? Carrier { get; set; }
+
+    public string? TrackingNumber { get; set; }
+
     public string Status { get; set; } = GangSheetStatus.Draft;
 
     // What the packer actually used, in millimetres, written when the sheet was
@@ -89,6 +121,19 @@ public partial class GangSheet
     // standing at a press with, and changing it underneath them would mean the
     // cut list and the film disagree.
     public bool IsEditable => Status == GangSheetStatus.Draft;
+
+    public bool IsShipping => EntityModels.FulfilmentMethod.IsShipping(FulfilmentMethod);
+
+    public bool HasBeenDispatched => DispatchedAt != null;
+
+    // What the customer owes for it. Zero on a studio sheet, which has no price
+    // and no postage.
+    public decimal Total => Price + ShippingFee;
+
+    // A printed sheet that is going in the post and hasn't yet. The one thing
+    // the studio still owes on it.
+    public bool AwaitingDispatch =>
+        Status == GangSheetStatus.Printed && IsShipping && !HasBeenDispatched;
 
     public int PlacedCount => Items.Count(i => i.IsPlaced);
 

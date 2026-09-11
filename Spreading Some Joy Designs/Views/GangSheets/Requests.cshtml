@@ -73,8 +73,34 @@
             </div>
             <div class="text-end">
                 <div class="fw-semibold">@request.SizeName</div>
-                <div>@request.PriceQuoted.ToString("C")</div>
                 <div class="sj-muted small">@request.TransferCount transfers</div>
+
+                @if (request.IsShipping)
+                {
+                    @* Where it's going, on the queue rather than a click away —
+                       accepting a posted sheet is agreeing to an envelope, postage
+                       and an address that has to be right. *@
+                    <div class="mt-2 small">
+                        <span class="badge text-bg-info">Post it</span>
+                        @foreach (var line in request.ShipToLines)
+                        {
+                            <div>@line</div>
+                        }
+                        @if (request.ShipToLines.Count == 0)
+                        {
+                            <div class="text-danger">No address — don't accept this.</div>
+                        }
+                    </div>
+                    <div class="small mt-1">
+                        <span class="sj-muted">@request.PriceQuoted.ToString("C") + @request.ShippingFee.ToString("C") postage</span>
+                        <div class="fw-semibold">@request.TotalQuoted.ToString("C")</div>
+                    </div>
+                }
+                else
+                {
+                    <div class="fw-semibold mt-1">@request.PriceQuoted.ToString("C")</div>
+                    <div class="sj-muted small">Collecting</div>
+                }
             </div>
         </div>
 

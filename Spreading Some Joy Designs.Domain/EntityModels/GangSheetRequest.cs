@@ -29,6 +29,28 @@ public partial class GangSheetRequest
     // agreed to.
     public decimal PriceQuoted { get; set; }
 
+    // 'Pickup' or 'Shipping'. The same two words orders use, checked by the same
+    // Fulfilment.Check — a sheet of film is the easiest thing this studio could
+    // post, so there was never a reason for it to have rules of its own.
+    public string FulfilmentMethod { get; set; } = EntityModels.FulfilmentMethod.Pickup;
+
+    // Where it goes, if it goes anywhere. A collection request stores no address
+    // at all, not a partial one: Fulfilment.ToStore drops whatever was posted.
+    public string? ShipToLine1 { get; set; }
+
+    public string? ShipToLine2 { get; set; }
+
+    public string? ShipToCity { get; set; }
+
+    public string? ShipToState { get; set; }
+
+    public string? ShipToPostalCode { get; set; }
+
+    // Postage at the moment they asked, snapshotted like PriceQuoted beside it.
+    // Zero on a collection request, and on every request made before the studio
+    // offered postage on sheets.
+    public decimal ShippingFee { get; set; }
+
     public string? Notes { get; set; }
 
     // The customer's assertion that the artwork is theirs to use. A gate, not a
@@ -60,6 +82,14 @@ public partial class GangSheetRequest
     // ---- Computed in C#, not columns. ----
 
     public int TransferCount => Items.Sum(i => i.Quantity);
+
+    public bool IsShipping => EntityModels.FulfilmentMethod.IsShipping(FulfilmentMethod);
+
+    // What they were quoted altogether. Postage is a charge on the sheet rather
+    // than an item on it, for the same reason it's a charge on an order rather
+    // than a line — an envelope is not a transfer and must not be packed like
+    // one.
+    public decimal TotalQuoted => PriceQuoted + ShippingFee;
 }
 
 // One image on a requested sheet, at a size, some number of times.

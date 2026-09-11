@@ -21,6 +21,7 @@ public class GangSheetRequestLogic : IGangSheetRequestLogic
     private readonly IArtworkRepository _artworkRepository;
     private readonly ICustomerRepository _customerRepository;
     private readonly IGangSheetLogic _gangSheetLogic;
+    private readonly IStudioSettings _settings;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IStudioClock _clock;
 
@@ -30,6 +31,7 @@ public class GangSheetRequestLogic : IGangSheetRequestLogic
         IArtworkRepository artworkRepository,
         ICustomerRepository customerRepository,
         IGangSheetLogic gangSheetLogic,
+        IStudioSettings settings,
         IUnitOfWork unitOfWork,
         IStudioClock clock)
     {
@@ -38,6 +40,7 @@ public class GangSheetRequestLogic : IGangSheetRequestLogic
         _artworkRepository = artworkRepository;
         _customerRepository = customerRepository;
         _gangSheetLogic = gangSheetLogic;
+        _settings = settings;
         _unitOfWork = unitOfWork;
         _clock = clock;
     }
@@ -50,7 +53,14 @@ public class GangSheetRequestLogic : IGangSheetRequestLogic
         if (size == null)
             return null;
 
-        return Pack(size, items);
+        var preview = Pack(size, items);
+
+        // Read live here so the builder shows what postage costs today. It is
+        // only frozen when the request is submitted.
+        preview.OffersShipping = _settings.OffersShipping;
+        preview.ShippingFee = _settings.ShippingFee;
+
+        return preview;
     }
 
     // ---- Submitting ----------------------------------------------------
@@ -80,6 +90,19 @@ public class GangSheetRequestLogic : IGangSheetRequestLogic
         var size = await _sizeRepository.GetAsync(s => s.GangSheetSizeId == request.GangSheetSizeId);
         if (size == null || !size.IsActive)
             return GangSheetRequestResult.Fail("That sheet size isn't available any more — pick another one.");
+
+        // The same rules garment orders go through, against the same studio
+        // switch. Applied here as well as on the form, not instead of it: the
+        // form is a suggestion, and the switch can be turned off while somebody
+        // has the builder open.
+        var method = FulfilmentMethod.Normalise(request.FulfilmentMethod);
+
+        var fulfilmentError = Fulfilment.Check(method, request.ShipTo, _settings.OffersShipping);
+        if (fulfilmentError != null)
+            return GangSheetRequestResult.Fail(fulfilmentError);
+
+        var shipTo = Fulfilment.ToStore(method, request.ShipTo);
+        var shippingFee = FulfilmentMethod.IsShipping(method) ? _settings.ShippingFee : 0m;
 
         foreach (var item in request.Items)
         {
@@ -125,8 +148,17 @@ public class GangSheetRequestLogic : IGangSheetRequestLogic
             GangSheetSizeId = size.GangSheetSizeId,
 
             // Snapshotted. A price rise between asking and being accepted must
-            // not restate what this customer agreed to.
+            // not restate what this customer agreed to. Postage follows the same
+            // rule, beside it, for the same reason.
             PriceQuoted = size.Price,
+            ShippingFee = shippingFee,
+
+            FulfilmentMethod = method,
+            ShipToLine1 = shipTo.Line1,
+            ShipToLine2 = shipTo.Line2,
+            ShipToCity = shipTo.City,
+            ShipToState = shipTo.State,
+            ShipToPostalCode = shipTo.PostalCode,
 
             Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : Truncate(request.Notes.Trim(), MaxNotesLength),
             RightsAttested = true,
@@ -218,6 +250,24 @@ public class GangSheetRequestLogic : IGangSheetRequestLogic
             if (size == null)
                 return GangSheetRequestResult.Fail("The sheet size this was ordered at no longer exists.");
 
+            // The rules run again at acceptance, not only at submission. A
+            // request made while the studio was posting is refused if postage
+            // has been switched off since — same shape as a garment request
+            // stranded by the same switch, and the same reason: the world moves
+            // while a request sits in a queue.
+            var stillUsable = Fulfilment.Check(
+                request.FulfilmentMethod,
+                new ShippingAddress(
+                    request.ShipToLine1,
+                    request.ShipToLine2,
+                    request.ShipToCity,
+                    request.ShipToState,
+                    request.ShipToPostalCode),
+                _settings.OffersShipping);
+
+            if (stillUsable != null)
+                return GangSheetRequestResult.Fail(stillUsable);
+
             var customer = await FindOrCreateCustomerAsync(request);
 
             var created = await _gangSheetLogic.CreateAsync(
@@ -253,8 +303,22 @@ public class GangSheetRequestLogic : IGangSheetRequestLogic
             if (!added.Success)
                 return GangSheetRequestResult.Fail(added.ErrorMessage!);
 
+            // Carried across exactly as stored. Accepting a request is agreeing
+            // to what the customer asked for, including how they asked to get it
+            // and what they were told it would cost.
             var marked = await _gangSheetLogic.MarkAsCustomerSheetAsync(
-                created.GangSheetId, customer.CustomerId, size.GangSheetSizeId, request.PriceQuoted);
+                created.GangSheetId,
+                customer.CustomerId,
+                size.GangSheetSizeId,
+                request.PriceQuoted,
+                request.FulfilmentMethod,
+                new ShippingAddress(
+                    request.ShipToLine1,
+                    request.ShipToLine2,
+                    request.ShipToCity,
+                    request.ShipToState,
+                    request.ShipToPostalCode),
+                request.ShippingFee);
 
             if (!marked.Success)
                 return GangSheetRequestResult.Fail(marked.ErrorMessage!);

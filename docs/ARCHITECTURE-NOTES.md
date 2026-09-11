@@ -254,6 +254,65 @@ day filling up. Verified:
 A collection order is never refused for any of this — switching postage off must
 not stop the studio taking orders.
 
+## There is a `Shipped` status now, and this note used to say there wasn't
+
+The original shipping work argued the status chain should be left alone: how an
+order reaches somebody isn't a stage it passes through, so `ReadyForPickup` kept
+its name and a `Post` pill went on the board beside the status.
+
+**That has been reversed, deliberately.** It held while the only thing to know
+was the *method*. It stopped holding once staff needed to tell a parcel that has
+gone from one still sitting on the bench — which is a question about *time*, and
+time belongs on the chain.
+
+`OrderStatus.Shipped` is the postal counterpart of `ReadyForPickup`, not a stage
+after it. Both mean "we've finished, it's with the customer now", and an order is
+only ever eligible for one of them:
+
+| | finishing status |
+|---|---|
+| Collection order | `ReadyForPickup` |
+| Postal order | `Shipped` |
+
+`SetStatusAsync` enforces that both ways — a postal order is refused
+`ReadyForPickup`, and `Shipped` is refused entirely because it carries a dispatch
+record and goes through `MarkShippedAsync`. Same arrangement `Cancelled` has
+always had for its reason: a status that carries information with it doesn't get
+a plain setter. The board and the details screen filter the dropdown to match,
+but that's a courtesy — the Domain refuses either way.
+
+`Shipped` is in `OrderStatus.Open`, for the same reason `ReadyForPickup` is:
+dropping it out would hand that day's press capacity back the moment a parcel
+was posted.
+
+### The dispatch record
+
+`DispatchedAt`, `Carrier`, `TrackingNumber` on `Orders`. Written together,
+cleared together.
+
+- **Carrier and tracking are both optional.** A job handed to a courier at the
+  counter has neither, and refusing to record the dispatch for want of a
+  reference number would mean the studio stops recording dispatches at all.
+- **Moving back off `Shipped` clears all three.** A tracking number on an order
+  nobody has posted is worse than none, because somebody will read it out to a
+  customer. Completing a posted order is the one exception — that parcel really
+  did leave.
+- **A postal order with no `ShipToLine1` is refused.** There's nothing to write
+  on the envelope, and recording a dispatch to nowhere is worse than a refusal.
+
+### Sheets get a record, orders get a status
+
+`GangSheets` has the same three dispatch columns and **no** `Shipped` status.
+
+The asymmetry is the point. An order's chain is what the production board is
+organised around, so staff need "posted" visible there. A sheet's chain — draft,
+ready, printed — describes *the film*: where it is in being made. Posting it is a
+fact about the envelope. Putting that on the film's chain would mean "printed"
+and "posted" couldn't both be true at once, and they obviously can.
+
+So a dispatched sheet stays `Printed`, with the record beside it, and
+`GangSheet.AwaitingDispatch` is what the "Post it" form keys off.
+
 ## A collection order stores no address at all
 
 Not a partial one. `Fulfilment.ToStore` drops whatever was posted when the
@@ -377,6 +436,26 @@ never restates what a customer already agreed to. Same rule as
 destined for the front or the back of anything — a cut list that claimed
 otherwise would be telling the person at the bench something untrue.
 
+### Sheets ship through the same rules garment orders do
+
+`GangSheetRequests` and `GangSheets` carry `FulfilmentMethod`, the five `ShipTo*`
+columns and `ShippingFee`, and the public builder offers ship-or-collect exactly
+as the order form does. Not a parallel implementation — the same
+`Fulfilment.Check` and `Fulfilment.ToStore`, against the same
+`Studios.OffersShipping` switch. A shop that isn't posting shirts isn't posting
+film either.
+
+Applied at submission **and** again at acceptance, "both, not either", the same
+as garment requests: a sheet asked for while postage was on is refused if the
+studio switches it off before staff get to it. Verified:
+`GangSheetRequestLogicTests.Turning_shipping_off_after_a_sheet_was_asked_for_blocks_the_acceptance`.
+
+A collection sheet is never refused for any of it — switching postage off must
+not stop the studio selling film over the counter.
+
+Postage on a sheet is a charge, not an item. Putting it in `GangSheetItems`
+would have handed the packer an envelope to find room for.
+
 ### Packing
 
 `Production/GangSheetPacker` is pure functions over rectangles, separate from
@@ -411,6 +490,7 @@ film is charged by, and the layout it came from is the one that got printed.
 | Anonymous input never reaches customer records | `Ordering/OrderRequestLogic` |
 | Nothing unapproved reaches the film — checked again at the press | `Production/GangSheetLogic.AddItemsAsync` **and** `MarkReadyAsync` |
 | A stranger's sheet never becomes a customer or a sheet unaccepted | `Production/GangSheetRequestLogic` |
+| A postal job is never "ready for pickup", and Shipped needs a dispatch | `Ordering/OrderLogic.SetStatusAsync` + `MarkShippedAsync` |
 | Lockout, enumeration resistance, last-Admin guards | `Identity/UserLogic` |
 | A studio cannot change its own tier | `Shared/StudioLogic` + the view model having no tier property |
 
@@ -436,6 +516,14 @@ or a restart, loses in-progress designs. Saved designs are unaffected.
 **Orphaned artwork accumulates.** An image fetched and then abandoned before the
 design is saved stays on disk and in the table forever. Nothing sweeps it. Worth
 a job before this runs for real.
+
+**Customers with no email used to break acceptance.** `UQ_Customers_Email` was a
+plain UNIQUE constraint, and SQL Server treats NULLs as equal in one -- so the
+database allowed exactly one customer with no email, and the second walk-in
+failed on insert with a 500. This note predicted it and named the fix; it is now
+a filtered unique index (`WHERE Email IS NOT NULL`). See
+`Scripts/FixCustomerEmailUniqueness.sql`. It affected both `OrderRequestLogic`
+and `GangSheetRequestLogic`, neither of which has any reason to demand an email.
 
 **`Scripts/` is gitignored.** The SQL that builds this schema is local only, same
 arrangement as Greg's Auto. A fresh clone cannot create the database. **Back
@@ -476,7 +564,7 @@ function with its own test file, and nothing else knows how it decides.
 
 ## Tests
 
-**Spreading Some Joy Designs.Tests** (300) — business rules against in-memory
+**Spreading Some Joy Designs.Tests** (327) — business rules against in-memory
 fakes. Fast, no database, run constantly.
 
 There is no smoke-test suite yet. Greg's Auto has one, and it exists there

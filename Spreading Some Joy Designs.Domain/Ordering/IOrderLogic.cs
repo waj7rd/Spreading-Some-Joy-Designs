@@ -19,6 +19,17 @@ public interface IOrderLogic
 
     Task<OrderResult> SetStatusAsync(int orderId, string status);
 
+    // Records that a postal order has actually gone: the moment, and how it can
+    // be followed. Separate from SetStatusAsync for the same reason CancelAsync
+    // is — the status change carries information with it, and one reachable
+    // without that information would produce orders marked as posted with
+    // nothing saying when.
+    //
+    // Carrier and tracking number are both optional. A job handed to a courier
+    // at the counter has neither, and refusing the dispatch for want of a
+    // reference number would mean the studio stops recording dispatches at all.
+    Task<OrderResult> MarkShippedAsync(int orderId, string? carrier, string? trackingNumber);
+
     Task<OrderResult> CancelAsync(int orderId, string reason);
 
     // Garments already promised for a date, and what's left. Drives the "we're

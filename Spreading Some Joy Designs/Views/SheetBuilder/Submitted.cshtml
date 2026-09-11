@@ -8,8 +8,25 @@
 
     <p class="mb-3">
         We've got your @Model.SizeName sheet — @Model.TransferCount transfer@(Model.TransferCount == 1 ? "" : "s")
-        on it, at @Model.Price.ToString("C").
+        on it.
     </p>
+
+    @* The total, broken out when there's postage in it. One figure would leave
+       somebody unable to answer "what was the postage?" without doing the
+       arithmetic themselves — the same reason the order screen splits it. *@
+    <dl class="row mx-auto mb-3 small" style="max-width:18rem;">
+        <dt class="col-7 text-start fw-normal sj-muted">Sheet</dt>
+        <dd class="col-5 text-end mb-1">@Model.Price.ToString("C")</dd>
+
+        @if (Model.IsShipping)
+        {
+            <dt class="col-7 text-start fw-normal sj-muted">Postage</dt>
+            <dd class="col-5 text-end mb-1">@Model.ShippingFee.ToString("C")</dd>
+        }
+
+        <dt class="col-7 text-start fw-semibold border-top pt-2">Total</dt>
+        <dd class="col-5 text-end mb-0 fw-semibold border-top pt-2">@Model.Total.ToString("C")</dd>
+    </dl>
 
     @if (Model.AnyAwaitingReview)
     {
@@ -19,7 +36,20 @@
         <p class="mb-3">
             Your artwork is with us for a quick look before it goes anywhere near the
             press. That's normally the same day. We'll ring or email once it's cleared
-            and the sheet is booked in.
+            @if (Model.IsShipping)
+            {
+                <text>and the sheet is in the post.</text>
+            }
+            else
+            {
+                <text>and the sheet is booked in.</text>
+            }
+        </p>
+    }
+    else if (Model.IsShipping)
+    {
+        <p class="mb-3">
+            We'll confirm shortly, and let you know when it's gone in the post.
         </p>
     }
     else

@@ -79,9 +79,38 @@
                     <dt class="col-7 fw-normal sj-muted">Space filled</dt>
                     <dd class="col-5 text-end mb-1">@Model.Preview.CoveragePercent.ToString("0.#")%</dd>
 
-                    <dt class="col-7 fw-semibold">Price</dt>
-                    <dd class="col-5 text-end mb-0 fw-semibold">@Model.Preview.Price.ToString("C")</dd>
+                    <dt class="col-7 fw-normal sj-muted">Sheet price</dt>
+                    <dd class="col-5 text-end mb-1">@Model.Preview.Price.ToString("C")</dd>
                 </dl>
+
+                @* Both totals are rendered and one is hidden, rather than one
+                   total the browser recalculates. The arithmetic stays on the
+                   server — a price a script worked out is a price nobody
+                   checked, and this is the number somebody agrees to pay. *@
+                @if (Model.Preview.OffersShipping)
+                {
+                    <dl class="row mb-0 small" data-shipping-only hidden="@(!Model.Preview.IsShipping)">
+                        <dt class="col-7 fw-normal sj-muted">Postage</dt>
+                        <dd class="col-5 text-end mb-1">+@Model.Preview.ShippingFee.ToString("C")</dd>
+
+                        <dt class="col-7 fw-semibold border-top pt-2">Total</dt>
+                        <dd class="col-5 text-end mb-0 fw-semibold border-top pt-2">
+                            @((Model.Preview.Price + Model.Preview.ShippingFee).ToString("C"))
+                        </dd>
+                    </dl>
+
+                    <dl class="row mb-0 small" data-pickup-only hidden="@Model.Preview.IsShipping">
+                        <dt class="col-7 fw-semibold border-top pt-2">Total</dt>
+                        <dd class="col-5 text-end mb-0 fw-semibold border-top pt-2">@Model.Preview.Price.ToString("C")</dd>
+                    </dl>
+                }
+                else
+                {
+                    <dl class="row mb-0 small">
+                        <dt class="col-7 fw-semibold border-top pt-2">Total</dt>
+                        <dd class="col-5 text-end mb-0 fw-semibold border-top pt-2">@Model.Preview.Price.ToString("C")</dd>
+                    </dl>
+                }
 
                 @* The price is for the sheet, not for what's on it. Said plainly,
                    because "I only used half of it" is the obvious next thought. *@
@@ -305,6 +334,73 @@
                             <label asp-for="Submit.Notes" class="form-label"></label>
                             <textarea asp-for="Submit.Notes" class="form-control" rows="2"></textarea>
                         </div>
+
+                        @* Only offered when the studio is posting. Refused
+                           server-side either way — Fulfilment.Check reads the
+                           studio record, not this form, and the switch can be
+                           turned off while somebody has this page open. *@
+                        @if (Model.Preview?.OffersShipping == true)
+                        {
+                            <div class="col-12">
+                                <label class="form-label">@Html.DisplayNameFor(m => m.Submit.FulfilmentMethod)</label>
+
+                                <div class="sj-card p-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="Submit.FulfilmentMethod"
+                                               id="fulfil-pickup" value="@FulfilmentMethod.Pickup"
+                                               checked="@(!Model.Submit.IsShipping)" data-fulfilment="pickup" />
+                                        <label class="form-check-label" for="fulfil-pickup">
+                                            Collect from the studio
+                                            <span class="sj-muted d-block small">Nothing extra to pay.</span>
+                                        </label>
+                                    </div>
+
+                                    <div class="form-check mt-2">
+                                        <input class="form-check-input" type="radio" name="Submit.FulfilmentMethod"
+                                               id="fulfil-shipping" value="@FulfilmentMethod.Shipping"
+                                               checked="@Model.Submit.IsShipping" data-fulfilment="shipping" />
+                                        <label class="form-check-label" for="fulfil-shipping">
+                                            Post it to me
+                                            <span class="sj-muted d-block small">
+                                                Adds @Model.Preview.ShippingFee.ToString("C") to the order.
+                                            </span>
+                                        </label>
+                                    </div>
+
+                                    @* Always rendered, hidden until it's needed. The fields
+                                       have to exist in the DOM either way, or a refused
+                                       submission comes back with the address the customer
+                                       typed gone. Same arrangement as the order form. *@
+                                    <div class="row g-2 mt-3" id="ship-to" hidden="@(!Model.Submit.IsShipping)">
+                                        <div class="col-12">
+                                            <label asp-for="Submit.ShipToLine1" class="form-label"></label>
+                                            <input asp-for="Submit.ShipToLine1" class="form-control"
+                                                   autocomplete="address-line1" />
+                                        </div>
+                                        <div class="col-12">
+                                            <label asp-for="Submit.ShipToLine2" class="form-label"></label>
+                                            <input asp-for="Submit.ShipToLine2" class="form-control"
+                                                   autocomplete="address-line2" />
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label asp-for="Submit.ShipToCity" class="form-label"></label>
+                                            <input asp-for="Submit.ShipToCity" class="form-control"
+                                                   autocomplete="address-level2" />
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label asp-for="Submit.ShipToState" class="form-label"></label>
+                                            <input asp-for="Submit.ShipToState" class="form-control"
+                                                   autocomplete="address-level1" />
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label asp-for="Submit.ShipToPostalCode" class="form-label"></label>
+                                            <input asp-for="Submit.ShipToPostalCode" class="form-control"
+                                                   autocomplete="postal-code" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
                     </div>
 
                     @* The same attestation the order form takes, in the same words,
@@ -340,4 +436,12 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+
+    @* Shared with the garment order form. A separate file rather than an inline
+       handler because the Content-Security-Policy blocks inline script outright,
+       and a blocked handler fails silently. *@
+    @if (Model.Preview?.OffersShipping == true)
+    {
+        <script src="~/js/fulfilment.js" asp-append-version="true"></script>
+    }
 }

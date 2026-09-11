@@ -117,6 +117,59 @@
                 }
 
                 <div class="sj-muted mt-2">Postage charged: @Model.ShippingFee.ToString("C")</div>
+
+                @if (Model.HasBeenDispatched)
+                {
+                    <div class="mt-3 pt-3 border-top">
+                        <div class="fw-semibold">
+                            Posted @Model.DispatchedAt!.Value.ToLocalTime().ToString("d MMM yyyy, HH:mm")
+                        </div>
+                        @if (!string.IsNullOrEmpty(Model.Carrier))
+                        {
+                            <div class="sj-muted">via @Model.Carrier</div>
+                        }
+                        @if (!string.IsNullOrEmpty(Model.TrackingNumber))
+                        {
+                            @* Shown as text, not a link. Which carrier's tracking site
+                               a reference belongs to is a guess, and a guess that sends
+                               a customer to the wrong one is worse than a number they
+                               can paste in themselves. *@
+                            <div>Tracking: <code>@Model.TrackingNumber</code></div>
+                        }
+                    </div>
+                }
+                else if (Model.AwaitingDispatch)
+                {
+                    <form asp-action="MarkShipped" method="post" class="mt-3 pt-3 border-top">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        <input type="hidden" name="returnTo" value="details" />
+
+                        <div class="fw-semibold mb-2">Post it</div>
+
+                        <div class="row g-2">
+                            <div class="col-sm-5">
+                                <label for="carrier" class="form-label small mb-1">Carrier</label>
+                                <input type="text" class="form-control form-control-sm" id="carrier"
+                                       name="carrier" maxlength="50" placeholder="USPS" />
+                            </div>
+                            <div class="col-sm-7">
+                                <label for="trackingNumber" class="form-label small mb-1">Tracking number</label>
+                                <input type="text" class="form-control form-control-sm" id="trackingNumber"
+                                       name="trackingNumber" maxlength="100" />
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-sm btn-primary mt-2">Mark shipped</button>
+
+                        @* Both blank is a perfectly good dispatch. Refusing to record
+                           one for want of a reference number would mean the studio
+                           stops recording them at all. *@
+                        <div class="sj-muted small mt-2">
+                            Both optional — leave them blank if there's no reference.
+                        </div>
+                    </form>
+                }
             }
             else
             {

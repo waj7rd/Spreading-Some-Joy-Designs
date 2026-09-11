@@ -20,11 +20,27 @@ public class GangSheetRequestLogicTests
     private readonly FakeCustomerRepository _customers = new();
     private readonly FakeUnitOfWork _unitOfWork = new();
 
+    // The studio's settings, so the shipping rules have something to read. Held
+    // as a field because a test that turns postage off mid-flight is exactly the
+    // interesting case.
+    private readonly Studio _studio = new()
+    {
+        StudioId = 1,
+        Name = "Spreading Some Joy Designs",
+        TimeZoneId = "UTC",
+        DailyPrintCapacity = 60,
+        TurnaroundDays = 3,
+        OffersShipping = true,
+        ShippingFee = 6m
+    };
+
     private GangSheetLogic SheetLogic() =>
         new(_sheets, _artworks, new FixedStudioClock(Now));
 
     private GangSheetRequestLogic Logic() =>
-        new(_requests, _sizes, _artworks, _customers, SheetLogic(), _unitOfWork, new FixedStudioClock(Now));
+        new(_requests, _sizes, _artworks, _customers, SheetLogic(),
+            new StudioSettingsFromContext(new FakeStudioContext(_studio)),
+            _unitOfWork, new FixedStudioClock(Now));
 
     // A 22 x 24 in sheet — 559mm across, 610mm long.
     private GangSheetSize Size(decimal price = 20m, int lengthMm = 610)
@@ -60,11 +76,18 @@ public class GangSheetRequestLogicTests
         return artwork;
     }
 
+    // Collection by default: it's the choice that needs no address, so a test
+    // about something else doesn't have to care about shipping.
+    private static readonly ShippingAddress Somewhere =
+        new("14 Elm Street", null, "Wright City", "MO", "63390");
+
     private static SubmitGangSheetRequest Submission(
         IReadOnlyCollection<BuilderItem>? items = null,
         bool rightsAttested = true,
         string name = "Ashley",
-        string? email = "ashley@example.test") =>
+        string? email = "ashley@example.test",
+        string method = FulfilmentMethod.Pickup,
+        ShippingAddress? shipTo = null) =>
         new(
             CustomerName: name,
             Email: email,
@@ -72,7 +95,12 @@ public class GangSheetRequestLogicTests
             GangSheetSizeId: 1,
             Items: items ?? [new BuilderItem(1, "Logo", 200, 200, 1)],
             Notes: null,
-            RightsAttested: rightsAttested);
+            RightsAttested: rightsAttested,
+            FulfilmentMethod: method,
+            ShipTo: shipTo ?? ShippingAddress.None);
+
+    private static SubmitGangSheetRequest Posted(ShippingAddress? shipTo = null) =>
+        Submission(method: FulfilmentMethod.Shipping, shipTo: shipTo ?? Somewhere);
 
     // ---- Submitting -----------------------------------------------------
 
@@ -392,5 +420,141 @@ public class GangSheetRequestLogicTests
 
         var accepted = await Logic().AcceptAsync(submitted.GangSheetRequestId, 1);
         Assert.False(accepted.Success);
+    }
+
+    // ---- Posting it ------------------------------------------------------
+
+    [Fact]
+    public async Task A_sheet_can_be_asked_for_by_post()
+    {
+        Size();
+        Artwork(1);
+
+        var result = await Logic().SubmitAsync(Posted());
+        Assert.True(result.Success, result.ErrorMessage);
+
+        var request = await Logic().GetByIdAsync(result.GangSheetRequestId);
+
+        Assert.True(request!.IsShipping);
+        Assert.Equal("14 Elm Street", request.ShipToLine1);
+        Assert.Equal(6m, request.ShippingFee);
+
+        // Sheet plus postage, which is what they were quoted.
+        Assert.Equal(26m, request.TotalQuoted);
+    }
+
+    [Fact]
+    public async Task Posting_is_refused_without_an_address()
+    {
+        // The same Fulfilment.Check garment orders go through. A sheet asked for
+        // by post with nothing to write on the envelope is not an order.
+        Size();
+        Artwork(1);
+
+        var result = await Logic().SubmitAsync(Posted(new ShippingAddress(null, null, null, null, null)));
+
+        Assert.False(result.Success);
+        Assert.Contains("street address", result.ErrorMessage!);
+        Assert.Empty(_requests.All);
+    }
+
+    [Fact]
+    public async Task Posting_is_refused_when_the_studio_is_not_shipping()
+    {
+        // The switch is on the studio record, not on the sheet catalogue. A shop
+        // that isn't posting shirts isn't posting film either.
+        _studio.OffersShipping = false;
+        Size();
+        Artwork(1);
+
+        var result = await Logic().SubmitAsync(Posted());
+
+        Assert.False(result.Success);
+        Assert.Contains("not shipping at the moment", result.ErrorMessage!);
+    }
+
+    [Fact]
+    public async Task A_collection_sheet_keeps_no_address_even_if_one_was_posted()
+    {
+        // Fulfilment.ToStore drops it. A half-filled address sitting on a
+        // collection order is the kind of thing that later gets read as a label.
+        Size();
+        Artwork(1);
+
+        var result = await Logic().SubmitAsync(
+            Submission(method: FulfilmentMethod.Pickup, shipTo: Somewhere));
+
+        var request = await Logic().GetByIdAsync(result.GangSheetRequestId);
+
+        Assert.Null(request!.ShipToLine1);
+        Assert.Equal(0m, request.ShippingFee);
+    }
+
+    [Fact]
+    public async Task Postage_is_snapshotted_when_the_sheet_is_asked_for()
+    {
+        Size();
+        Artwork(1);
+
+        var result = await Logic().SubmitAsync(Posted());
+        Assert.True(result.Success);
+
+        _studio.ShippingFee = 25m;
+
+        var request = await Logic().GetByIdAsync(result.GangSheetRequestId);
+        Assert.Equal(6m, request!.ShippingFee);
+    }
+
+    [Fact]
+    public async Task Turning_shipping_off_after_a_sheet_was_asked_for_blocks_the_acceptance()
+    {
+        // The rules run again at acceptance, not only at submission — the same
+        // shape as OrderRequestLogic, and for the same reason: the world moves
+        // while a request sits in a queue.
+        Size();
+        Artwork(1);
+
+        var submitted = await Logic().SubmitAsync(Posted());
+        Assert.True(submitted.Success);
+
+        _studio.OffersShipping = false;
+
+        var accepted = await Logic().AcceptAsync(submitted.GangSheetRequestId, handledByUserId: 1);
+
+        Assert.False(accepted.Success);
+        Assert.Contains("not shipping at the moment", accepted.ErrorMessage!);
+        Assert.Empty(_sheets.All);
+    }
+
+    [Fact]
+    public async Task A_collection_sheet_is_never_refused_for_any_of_that()
+    {
+        // Switching postage off must not stop the studio taking sheet orders.
+        _studio.OffersShipping = false;
+        Size();
+        Artwork(1);
+
+        var submitted = await Logic().SubmitAsync(Submission());
+        Assert.True(submitted.Success, submitted.ErrorMessage);
+
+        Assert.True((await Logic().AcceptAsync(submitted.GangSheetRequestId, 1)).Success);
+    }
+
+    [Fact]
+    public async Task Accepting_carries_the_address_and_the_postage_onto_the_sheet()
+    {
+        Size();
+        Artwork(1);
+
+        var submitted = await Logic().SubmitAsync(Posted());
+        Assert.True((await Logic().AcceptAsync(submitted.GangSheetRequestId, 1)).Success);
+
+        var sheet = Assert.Single(_sheets.All);
+
+        Assert.True(sheet.IsShipping);
+        Assert.Equal("14 Elm Street", sheet.ShipToLine1);
+        Assert.Equal("Wright City", sheet.ShipToCity);
+        Assert.Equal(6m, sheet.ShippingFee);
+        Assert.Equal(26m, sheet.Total);
     }
 }

@@ -58,7 +58,21 @@ public interface IGangSheetLogic
     // rather than a second constructor — which is what stops there being two
     // ways to make a sheet.
     Task<GangSheetResult> MarkAsCustomerSheetAsync(
-        int gangSheetId, int customerId, int gangSheetSizeId, decimal price);
+        int gangSheetId,
+        int customerId,
+        int gangSheetSizeId,
+        decimal price,
+        string fulfilmentMethod,
+        ShippingAddress shipTo,
+        decimal shippingFee);
+
+    // Records that a printed customer sheet has gone in the post.
+    //
+    // A dispatch record rather than a status, unlike orders. The sheet's chain —
+    // draft, ready, printed — describes the film: where it is in being made.
+    // Posting it is a fact about the envelope, and putting that on the film's
+    // chain would mean "printed" and "posted" couldn't both be true at once.
+    Task<GangSheetResult> MarkDispatchedAsync(int gangSheetId, string? carrier, string? trackingNumber);
 }
 
 // The editable fields of a sheet, as one parameter object — same reasoning as

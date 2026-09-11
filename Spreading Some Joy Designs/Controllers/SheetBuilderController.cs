@@ -215,12 +215,24 @@ public class SheetBuilderController : Controller
             GangSheetSizeId: sizeId.Value,
             Items: items,
             Notes: model.Notes,
-            RightsAttested: model.RightsAttested));
+            RightsAttested: model.RightsAttested,
+
+            // Passed through as typed. Normalising, checking and deciding
+            // whether the address is even needed all happen in the Domain — the
+            // controller's job is to hand over what the visitor said, not to
+            // interpret it.
+            FulfilmentMethod: model.FulfilmentMethod,
+            ShipTo: new ShippingAddress(
+                model.ShipToLine1,
+                model.ShipToLine2,
+                model.ShipToCity,
+                model.ShipToState,
+                model.ShipToPostalCode)));
 
         if (!result.Success)
         {
             var sizes = await _sizeLogic.GetActiveAsync();
-            var failed = await BuildAsync(sizes, sizeId.Value, items);
+            var failed = await BuildAsync(sizes, sizeId.Value, items, model.FulfilmentMethod);
             failed.Submit = model;
             failed.ErrorMessage = result.ErrorMessage;
             return View(nameof(Index), failed);
@@ -238,6 +250,8 @@ public class SheetBuilderController : Controller
             CustomerName = model.CustomerName.Trim(),
             SizeName = request?.GangSheetSize?.Name ?? string.Empty,
             Price = request?.PriceQuoted ?? 0m,
+            ShippingFee = request?.ShippingFee ?? 0m,
+            IsShipping = request?.IsShipping ?? false,
             TransferCount = request?.TransferCount ?? 0,
             AnyAwaitingReview = request?.Items.Any(i => i.Artwork?.Status != ArtworkStatus.Approved) ?? true
         });
@@ -297,11 +311,15 @@ public class SheetBuilderController : Controller
     }
 
     private async Task<SheetBuilderViewModel> BuildAsync(
-        IList<GangSheetSize> sizes, int sizeId, IReadOnlyList<BuilderItem> items)
+        IList<GangSheetSize> sizes,
+        int sizeId,
+        IReadOnlyList<BuilderItem> items,
+        string? fulfilmentMethod = null)
     {
         var model = new SheetBuilderViewModel
         {
             GangSheetSizeId = sizeId,
+            Submit = { FulfilmentMethod = FulfilmentMethod.Normalise(fulfilmentMethod) },
             Sizes = sizes.Select(s => new SheetSizeOptionViewModel
             {
                 Id = s.GangSheetSizeId,
@@ -359,6 +377,9 @@ public class SheetBuilderController : Controller
                     UsedLengthMm = preview.UsedLengthMm,
                     CoveragePercent = preview.CoveragePercent,
                     Price = preview.Price,
+                    OffersShipping = preview.OffersShipping,
+                    ShippingFee = preview.ShippingFee,
+                    IsShipping = model.Submit.IsShipping,
                     TooBig = preview.TooBig,
                     NoRoom = preview.NoRoom,
                     Placed = preview.Placed.Select(p => new PreviewItemViewModel

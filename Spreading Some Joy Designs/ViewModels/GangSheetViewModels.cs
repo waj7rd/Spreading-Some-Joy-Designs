@@ -44,6 +44,24 @@ public class GangSheetRowViewModel
 
     public bool IsCustomerSheet => Origin == GangSheetOriginNames.Customer;
 
+    // Where it goes once it's printed, and whether it has gone.
+    public bool IsShipping { get; set; }
+    public decimal ShippingFee { get; set; }
+    public IReadOnlyList<string> ShipToLines { get; set; } = [];
+
+    public DateTime? DispatchedAt { get; set; }
+    public string? Carrier { get; set; }
+    public string? TrackingNumber { get; set; }
+
+    public bool HasBeenDispatched => DispatchedAt != null;
+
+    // A printed customer sheet that's going in the post and hasn't yet. The one
+    // thing the studio still owes on it.
+    public bool AwaitingDispatch =>
+        IsCustomerSheet && IsShipping && !HasBeenDispatched && Status == GangSheetStatusNames.Printed;
+
+    public decimal Total => Price + ShippingFee;
+
     // "22 × 60 in" — how the film is described everywhere except in this
     // database. Shown so an order to the supplier can be placed without anyone
     // doing arithmetic.
@@ -260,6 +278,16 @@ public class GangSheetRequestRowViewModel
     public decimal PriceQuoted { get; set; }
     public int TransferCount { get; set; }
     public string? Notes { get; set; }
+
+    // How they asked to get it. On the queue because accepting a posted sheet is
+    // agreeing to different work: it needs an envelope, postage, and an address
+    // that has to be right before the sheet exists rather than after.
+    public string FulfilmentMethod { get; set; } = "Pickup";
+    public bool IsShipping => FulfilmentMethod == "Shipping";
+    public decimal ShippingFee { get; set; }
+    public IReadOnlyList<string> ShipToLines { get; set; } = [];
+
+    public decimal TotalQuoted => PriceQuoted + ShippingFee;
 
     public string Status { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }

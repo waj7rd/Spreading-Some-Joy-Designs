@@ -7,6 +7,10 @@ using SpreadingJoy.ViewModels.Validation;
 // third name for the same idea.
 using FulfilmentMethods = SpreadingJoy.Domain.EntityModels.FulfilmentMethod;
 
+// Aliased rather than importing the whole entity namespace, which would bring
+// FulfilmentMethod back in under its own name and undo the line above.
+using OrderStatuses = SpreadingJoy.Domain.EntityModels.OrderStatus;
+
 namespace SpreadingJoy.ViewModels;
 
 // An address as it would go on a label: the parts that exist, in order, with
@@ -53,6 +57,25 @@ public class OrderRowViewModel
     // post office after the press is finished with it.
     public bool IsShipping { get; set; }
 
+    // Whether it has actually gone. Read from the dispatch record rather than
+    // the status, so an order moved on by hand can't claim to have been posted
+    // when nobody wrote down when.
+    public bool HasBeenDispatched { get; set; }
+
+    // A postal order that hasn't been posted yet — the one thing the studio
+    // still owes on it, and what the board's "Post" button is offered for.
+    public bool AwaitingDispatch => IsShipping && !HasBeenDispatched;
+
+    // What this order may be moved to by hand. Shipped is absent on purpose —
+    // it carries a dispatch record, so it goes through its own action — and
+    // ReadyForPickup is absent on a postal order, which is never waiting on a
+    // counter. The Domain refuses both anyway; this stops staff being offered a
+    // choice that is only going to be turned down.
+    public IEnumerable<string> SelectableStatuses(IEnumerable<string> all) =>
+        all.Where(s => s != OrderStatuses.Cancelled
+                       && s != OrderStatuses.Shipped
+                       && !(s == OrderStatuses.ReadyForPickup && IsShipping));
+
     // Drives the "late" styling on the board. Compared against the studio's
     // today, supplied by the controller — not DateTime.Today, which on a UTC
     // server is the wrong day for several hours each evening.
@@ -98,6 +121,27 @@ public class OrderDetailsViewModel
     // than inferred from whether an address happens to be filled in.
     public string FulfilmentMethod { get; set; } = FulfilmentMethods.Pickup;
     public bool IsShipping => FulfilmentMethods.IsShipping(FulfilmentMethod);
+
+    // The dispatch record. All three arrive together, or not at all.
+    public DateTime? DispatchedAt { get; set; }
+    public string? Carrier { get; set; }
+    public string? TrackingNumber { get; set; }
+
+    public bool HasBeenDispatched => DispatchedAt != null;
+
+    // A postal order that hasn't gone yet, and still could. What the dispatch
+    // form is offered for.
+    public bool AwaitingDispatch =>
+        IsShipping && !HasBeenDispatched
+                   && Status != OrderStatuses.Cancelled
+                   && Status != OrderStatuses.Completed;
+
+    // The same rule the board applies, for the same reason — see
+    // OrderRowViewModel.SelectableStatuses.
+    public IEnumerable<string> SelectableStatuses(IEnumerable<string> all) =>
+        all.Where(s => s != OrderStatuses.Cancelled
+                       && s != OrderStatuses.Shipped
+                       && !(s == OrderStatuses.ReadyForPickup && IsShipping));
 
     public string? ShipToLine1 { get; set; }
     public string? ShipToLine2 { get; set; }

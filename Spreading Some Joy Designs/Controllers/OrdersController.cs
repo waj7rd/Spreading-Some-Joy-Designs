@@ -211,7 +211,8 @@ public class OrdersController : Controller
                 // Judged against the studio's today, not the server's.
                 // Changes what the day actually involves: a shipped order still has to
                 // be packed and posted once the press is finished with it.
-                IsShipping = o.IsShipped,
+                IsShipping = o.IsShipping,
+                HasBeenDispatched = o.HasBeenDispatched,
 
                 IsOverdue = o.DueOn < today
             }).ToList()
@@ -247,6 +248,11 @@ public class OrdersController : Controller
             ShipToState = order.ShipToState,
             ShipToPostalCode = order.ShipToPostalCode,
 
+            // The dispatch record, if it has gone.
+            DispatchedAt = order.DispatchedAt,
+            Carrier = order.Carrier,
+            TrackingNumber = order.TrackingNumber,
+
             // As snapshotted onto this order when it was placed, not the fee the
             // studio charges today.
             ShippingFee = order.ShippingFee,
@@ -279,6 +285,28 @@ public class OrdersController : Controller
             TempData["OrderError"] = result.ErrorMessage;
         else
             TempData["OrderSuccess"] = $"Order #{id} is now {status}.";
+
+        return returnTo == "details"
+            ? RedirectToAction(nameof(Details), new { id })
+            : RedirectToAction(nameof(Board));
+    }
+
+    // POST /Orders/MarkShipped
+    //
+    // Its own action for the same reason Cancel is: the status change carries
+    // information with it, and one reachable without that information would
+    // leave orders marked as posted with nothing saying when.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Policy = Policies.ManageOrders)]
+    public async Task<IActionResult> MarkShipped(int id, string? carrier, string? trackingNumber, string? returnTo)
+    {
+        var result = await _orderLogic.MarkShippedAsync(id, carrier, trackingNumber);
+
+        if (!result.Success)
+            TempData["OrderError"] = result.ErrorMessage;
+        else
+            TempData["OrderSuccess"] = $"Order #{id} is on its way.";
 
         return returnTo == "details"
             ? RedirectToAction(nameof(Details), new { id })

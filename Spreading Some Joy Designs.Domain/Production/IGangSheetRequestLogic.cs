@@ -48,7 +48,13 @@ public record SubmitGangSheetRequest(
     int GangSheetSizeId,
     IReadOnlyCollection<BuilderItem> Items,
     string? Notes,
-    bool RightsAttested);
+    bool RightsAttested,
+
+    // How they want it. Checked by the same Fulfilment.Check garment orders go
+    // through, against the same studio switch — a studio that isn't posting
+    // shirts isn't posting film either.
+    string FulfilmentMethod,
+    ShippingAddress ShipTo);
 
 // What the packer made of it, for drawing on screen. Not stored: where each
 // transfer actually lands is decided again when the request becomes a real
@@ -63,6 +69,13 @@ public class SheetPreview
 
     public int UsedLengthMm { get; set; }
     public double CoveragePercent { get; set; }
+
+    // Postage as it stands right now, so the builder can show the total the
+    // customer would actually pay rather than the sheet price alone. Read live
+    // off the studio record here — it is only snapshotted at submission.
+    public decimal ShippingFee { get; set; }
+
+    public bool OffersShipping { get; set; }
 
     public IReadOnlyList<PreviewPlacement> Placed { get; set; } = [];
 

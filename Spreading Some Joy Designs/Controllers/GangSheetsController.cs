@@ -229,6 +229,24 @@ public class GangSheetsController : Controller
         return RedirectToAction(nameof(Build), new { id });
     }
 
+    // POST /GangSheets/MarkDispatched
+    //
+    // A record rather than a status change — see GangSheet.DispatchedAt. The
+    // sheet stays Printed, because that is still true of the film.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> MarkDispatched(int id, string? carrier, string? trackingNumber)
+    {
+        var result = await _gangSheetLogic.MarkDispatchedAsync(id, carrier, trackingNumber);
+
+        if (!result.Success)
+            TempData["GangSheetError"] = result.ErrorMessage;
+        else
+            TempData["GangSheetSuccess"] = "Marked as posted.";
+
+        return RedirectToAction(nameof(Build), new { id });
+    }
+
     // POST /GangSheets/Reopen
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -433,6 +451,11 @@ public class GangSheetsController : Controller
                 PriceQuoted = r.PriceQuoted,
                 TransferCount = r.TransferCount,
                 Notes = r.Notes,
+
+                FulfilmentMethod = r.FulfilmentMethod,
+                ShippingFee = r.ShippingFee,
+                ShipToLines = ShippingAddressLines.For(
+                    r.ShipToLine1, r.ShipToLine2, r.ShipToCity, r.ShipToState, r.ShipToPostalCode),
                 Status = r.Status,
                 CreatedAt = r.CreatedAt,
                 HandledAt = r.HandledAt,
@@ -573,6 +596,16 @@ public class GangSheetsController : Controller
         CreatedBy = sheet.CreatedByUser?.FullName,
         Origin = sheet.Origin,
         CustomerName = sheet.Customer?.FullName,
-        Price = sheet.Price
+        Price = sheet.Price,
+
+        IsShipping = sheet.IsShipping,
+        ShippingFee = sheet.ShippingFee,
+        ShipToLines = ShippingAddressLines.For(
+            sheet.ShipToLine1, sheet.ShipToLine2, sheet.ShipToCity,
+            sheet.ShipToState, sheet.ShipToPostalCode),
+
+        DispatchedAt = sheet.DispatchedAt,
+        Carrier = sheet.Carrier,
+        TrackingNumber = sheet.TrackingNumber
     };
 }

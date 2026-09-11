@@ -19,6 +19,12 @@ public class GangSheetLogic : IGangSheetLogic
     private const int MaxLabelLength = 120;
     private const int MaxNotesLength = 500;
 
+    // Same bounds the ordering side uses, because the columns are the same size
+    // and a customer with two things in the post shouldn't find one of them
+    // records a courier reference the other refuses.
+    private const int MaxCarrierLength = 50;
+    private const int MaxTrackingLength = 100;
+
     private readonly IGangSheetRepository _gangSheetRepository;
     private readonly IArtworkRepository _artworkRepository;
     private readonly IStudioClock _clock;
@@ -307,7 +313,13 @@ public class GangSheetLogic : IGangSheetLogic
     }
 
     public async Task<GangSheetResult> MarkAsCustomerSheetAsync(
-        int gangSheetId, int customerId, int gangSheetSizeId, decimal price)
+        int gangSheetId,
+        int customerId,
+        int gangSheetSizeId,
+        decimal price,
+        string fulfilmentMethod,
+        ShippingAddress shipTo,
+        decimal shippingFee)
     {
         var sheet = await _gangSheetRepository.GetWithItemsAsync(gangSheetId);
         if (sheet == null)
@@ -319,14 +331,72 @@ public class GangSheetLogic : IGangSheetLogic
         if (sheet.Origin == GangSheetOrigin.Customer)
             return GangSheetResult.Fail("That sheet already belongs to a customer.");
 
+        var method = FulfilmentMethod.Normalise(fulfilmentMethod);
+
+        // A collection sheet keeps no address at all, not a partial one — the
+        // same rule orders follow, so a half-filled address can't sit on a sheet
+        // waiting for somebody to read it as a label.
+        var stored = Fulfilment.ToStore(method, shipTo);
+
         sheet.Origin = GangSheetOrigin.Customer;
         sheet.CustomerId = customerId;
         sheet.GangSheetSizeId = gangSheetSizeId;
         sheet.Price = price;
 
+        sheet.FulfilmentMethod = method;
+        sheet.ShipToLine1 = stored.Line1;
+        sheet.ShipToLine2 = stored.Line2;
+        sheet.ShipToCity = stored.City;
+        sheet.ShipToState = stored.State;
+        sheet.ShipToPostalCode = stored.PostalCode;
+        sheet.ShippingFee = FulfilmentMethod.IsShipping(method) ? shippingFee : 0m;
+
         await _gangSheetRepository.SaveChangesAsync();
         return GangSheetResult.Ok(sheet.GangSheetId);
     }
+
+    public async Task<GangSheetResult> MarkDispatchedAsync(int gangSheetId, string? carrier, string? trackingNumber)
+    {
+        var sheet = await _gangSheetRepository.GetWithItemsAsync(gangSheetId);
+        if (sheet == null)
+            return GangSheetResult.Fail("Gang sheet not found.");
+
+        // Only a sheet somebody is waiting on can be posted. A studio sheet is
+        // production tooling — it goes to the bench, not into an envelope.
+        if (sheet.Origin != GangSheetOrigin.Customer)
+            return GangSheetResult.Fail("That's a studio sheet — there's nobody to post it to.");
+
+        if (!sheet.IsShipping)
+            return GangSheetResult.Fail("That sheet is being collected from the studio.");
+
+        // Printing it is what makes it postable. Dispatching a draft would mean
+        // recording that an envelope went out containing film that doesn't
+        // exist yet.
+        if (sheet.Status != GangSheetStatus.Printed)
+            return GangSheetResult.Fail("Print the sheet before posting it.");
+
+        if (sheet.HasBeenDispatched)
+            return GangSheetResult.Fail("That sheet has already been posted.");
+
+        if (string.IsNullOrWhiteSpace(sheet.ShipToLine1))
+            return GangSheetResult.Fail("That sheet has no address on it.");
+
+        if ((carrier?.Trim().Length ?? 0) > MaxCarrierLength)
+            return GangSheetResult.Fail($"Carrier has to be {MaxCarrierLength} characters or fewer.");
+
+        if ((trackingNumber?.Trim().Length ?? 0) > MaxTrackingLength)
+            return GangSheetResult.Fail($"Tracking number has to be {MaxTrackingLength} characters or fewer.");
+
+        sheet.DispatchedAt = _clock.UtcNow;
+        sheet.Carrier = Blank(carrier);
+        sheet.TrackingNumber = Blank(trackingNumber);
+
+        await _gangSheetRepository.SaveChangesAsync();
+        return GangSheetResult.Ok(sheet.GangSheetId);
+    }
+
+    private static string? Blank(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     public async Task<IList<TransferCandidate>> GetCandidatesAsync()
     {

@@ -8,8 +8,8 @@
     <!-- EF Core provider for SQL Server. Pinned to 8.0.* so the EF Core major
          version matches the .NET 8 target framework. This one package pulls in
          EF Core itself as a dependency. -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.*" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.*" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.*" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.*" />
 
     <!-- Artwork arrives as bytes from a stranger's URL or upload. This decodes
          it to find out what it actually is, and re-encodes it to strip whatever
@@ -18,7 +18,7 @@
 
     <!-- The image fetcher is an HttpClient consumer; this is what supplies it
          a pooled, correctly-disposed one outside the web project's DI. -->
-    <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.*" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.*" />
   </ItemGroup>
 
   <PropertyGroup>
